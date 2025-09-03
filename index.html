@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Silly Caption</title>
+    <link rel="stylesheet" href="styles.css">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src https://openrouter.ai">
+</head>
+<body>
+    <header>
+        <h1>Silly Caption</h1>
+    </header>
+    <main>
+        <section class="controls">
+            <div class="field">
+                <label for="apiKey">OpenRouter API Key</label>
+                <input type="password" id="apiKey" placeholder="sk-or-v1-..." autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="modelId">Model</label>
+                <div class="custom-select-wrapper">
+                    <div class="custom-select">
+                        <div class="custom-select-trigger">
+                            <span id="selectedModelName">Select a model...</span>
+                            <div class="arrow"></div>
+                        </div>
+                        <div class="custom-options">
+                            <div class="custom-options-header">
+                                <select id="providerFilter">
+                                    <option value="all">All</option>
+                                    <option value="google" selected>Google</option>
+                                    <option value="openai">OpenAI</option>
+                                    <option value="anthropic">Anthropic</option>
+                                    <option value="mistralai">Mistral</option>
+                                    <option value="meta-llama">Meta</option>
+                                </select>
+                                <input type="text" id="modelSearch" placeholder="Search models...">
+                            </div>
+                            <div id="modelOptions" class="model-options-list"></div>
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" id="modelId">
+            </div>
+            <div class="field">
+                <label for="systemPrompt">System Prompt</label>
+                <textarea id="systemPrompt" rows="5" placeholder="Describe exactly how captions should be produced."></textarea>
+            </div>
+            <div class="field">
+                <label for="presetSelect">Prompt Presets</label>
+                <div class="preset-row">
+                    <select id="presetSelect"></select>
+                    <input type="text" id="presetName" placeholder="Preset name" autocomplete="off">
+                    <button id="btnSavePreset">Save Preset</button>
+                    <button id="btnDeletePreset">Delete</button>
+                </div>
+                <div class="hint">Selecting a preset fills the System Prompt. Saving stores it in your browser.</div>
+            </div>
+            <div class="field">
+                <label for="files">Upload Images/Videos</label>
+                <input type="file" id="files" accept="image/*,video/*" multiple>
+            </div>
+
+            <div class="field grid-3">
+                <div>
+                    <label for="rps">Max RPS</label>
+                    <input type="number" id="rps" min="1" max="100" value="10">
+                </div>
+                <div>
+                    <label for="concurrency">Max Concurrency</label>
+                    <input type="number" id="concurrency" min="1" max="20" value="5">
+                </div>
+                <div>
+                    <label for="framesPerVideo">Frames per Video</label>
+                    <input type="number" id="framesPerVideo" min="1" max="10" value="3">
+                </div>
+            </div>
+            <div class="field grid-3">
+                <div>
+                    <label for="retryLimit">Retry Limit</label>
+                    <input type="number" id="retryLimit" min="0" max="5" value="2">
+                </div>
+                <div>
+                    <label for="downscaleMp">Downscale Target MP</label>
+                    <input type="number" id="downscaleMp" min="0.2" max="5" step="0.1" value="1">
+                </div>
+                <div style="display:flex;align-items:end">
+                    <button id="btnSaveZip" disabled>Save Captions as ZIP</button>
+                </div>
+            </div>
+
+            <div class="buttons">
+                <button id="btnCaption">Caption</button>
+                <button id="btnCancel" disabled>Cancel</button>
+                <button id="btnClear">Clear</button>
+            </div>
+            <div class="hint">Your API key is only used locally in this browser tab.</div>
+        </section>
+
+        <section class="status">
+            <div id="progressText">Idle</div>
+            <progress id="progressBar" value="0" max="100"></progress>
+        </section>
+
+        <section id="results" class="results"></section>
+    </main>
+    <footer>
+        <a href="https://openrouter.ai" target="_blank" rel="noreferrer noopener">Powered by OpenRouter</a>
+    </footer>
+
+    <script src="dist/jszip.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
+
