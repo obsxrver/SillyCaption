@@ -13,6 +13,9 @@
   
     const ui = {
       apiKey: el('apiKey'),
+      btnSignIn: el('btnSignIn'),
+      btnSignOut: el('btnSignOut'),
+      authStatus: el('authStatus'),
       modelId: el('modelId'),
       systemPrompt: el('systemPrompt'),
       files: el('files'),
@@ -44,6 +47,8 @@
     // Persistent storage keys
     const storageKeys = {
       apiKey: 'sc_api_key',
+      oauthKey: 'sc_oauth_key',
+      oauthCodeVerifier: 'sc_oauth_pkce_verifier',
       presets: 'sc_presets',
       lastPreset: 'sc_last_preset',
     };
@@ -197,9 +202,112 @@
       setRunning(false);
       ui.progressText.textContent = 'Cancelled';
     });
+
+    // --- OAuth (PKCE) integration ---
+    async function sha256(buffer) {
+      const data = typeof buffer === 'string' ? new TextEncoder().encode(buffer) : buffer;
+      const digest = await crypto.subtle.digest('SHA-256', data);
+      return new Uint8Array(digest);
+    }
+
+    function base64UrlEncode(bytes) {
+      let s = btoa(String.fromCharCode(...bytes));
+      return s.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    }
+
+    function randomString(len = 64) {
+      const arr = new Uint8Array(len);
+      crypto.getRandomValues(arr);
+      return base64UrlEncode(arr);
+    }
+
+    function getOrigin() {
+      return window.location.origin + window.location.pathname.replace(/index\.html$/, '');
+    }
+
+    async function beginOAuth() {
+      const verifier = randomString(64);
+      const challenge = base64UrlEncode(await sha256(verifier));
+      try { localStorage.setItem(storageKeys.oauthCodeVerifier, verifier); } catch {}
+      const callbackUrl = getOrigin();
+      const authUrl = `https://openrouter.ai/auth?callback_url=${encodeURIComponent(callbackUrl)}&code_challenge=${encodeURIComponent(challenge)}&code_challenge_method=S256`;
+      window.location.href = authUrl;
+    }
+
+    async function exchangeCodeForKey(code) {
+      const verifier = localStorage.getItem(storageKeys.oauthCodeVerifier) || '';
+      const res = await fetch('https://openrouter.ai/api/v1/auth/keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, code_verifier: verifier, code_challenge_method: 'S256' }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`OAuth exchange failed: ${text || res.statusText}`);
+      }
+      const json = await res.json();
+      const key = json?.key || json?.api_key || json?.access_token || '';
+      if (!key) throw new Error('No key in OAuth response');
+      try { localStorage.setItem(storageKeys.oauthKey, key); } catch {}
+      // Optionally sync into apiKey input for transparency
+      ui.apiKey.value = key;
+      try { localStorage.setItem(storageKeys.apiKey, key); } catch {}
+      try { localStorage.removeItem(storageKeys.oauthCodeVerifier); } catch {}
+      updateAuthUI();
+    }
+
+    function getAuthKey() {
+      // Prefer OAuth key; fall back to manual
+      try {
+        const k = localStorage.getItem(storageKeys.oauthKey);
+        if (k) return k;
+      } catch {}
+      return (ui.apiKey.value || '').trim();
+    }
+
+    function signOut() {
+      try { localStorage.removeItem(storageKeys.oauthKey); } catch {}
+      updateAuthUI();
+    }
+
+    function updateAuthUI() {
+      const key = (() => { try { return localStorage.getItem(storageKeys.oauthKey); } catch { return null; } })();
+      const signedIn = !!(key && key.startsWith('sk-'));
+      if (ui.authStatus) {
+        ui.authStatus.textContent = signedIn ? 'Signed in' : 'Signed out';
+        ui.authStatus.classList.toggle('ok', signedIn);
+      }
+      if (ui.btnSignIn) ui.btnSignIn.disabled = signedIn;
+      if (ui.btnSignOut) ui.btnSignOut.disabled = !signedIn;
+    }
+
+    // Wire buttons
+    ui.btnSignIn?.addEventListener('click', () => { beginOAuth(); });
+    ui.btnSignOut?.addEventListener('click', () => { signOut(); });
+
+    // Handle callback code on load
+    (async function handleOAuthCallback(){
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        if (code) {
+          await exchangeCodeForKey(code);
+          // Clean URL
+          const url = new URL(window.location.href);
+          url.searchParams.delete('code');
+          url.searchParams.delete('state');
+          history.replaceState({}, '', url.toString());
+        }
+      } catch (e) {
+        console.error(e);
+        ui.progressText.textContent = 'OAuth error: ' + (e?.message || String(e));
+      } finally {
+        updateAuthUI();
+      }
+    })();
   
     ui.btnCaption.addEventListener('click', async () => {
-      const apiKey = ui.apiKey.value.trim();
+      const apiKey = getAuthKey();
       if (!apiKey) {
         alert('Please enter your OpenRouter API key.');
         return;
@@ -589,7 +697,7 @@
       if (model === 'google/gemini-2.5-flash') {
         body.reasoning = { enabled: true };
       }
-      console.log(body);
+      // console.log(body);
       const res = await fetch(api.endpoint, {
         method: 'POST',
         headers: {

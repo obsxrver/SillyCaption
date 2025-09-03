@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Silly Caption</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="static/styles.css">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src https://openrouter.ai">
 </head>
 <body>
@@ -13,6 +13,15 @@
     </header>
     <main>
         <section class="controls">
+            <div class="field">
+                <label>OpenRouter Account</label>
+                <div class="oauth-row">
+                    <button id="btnSignIn">Sign in with OpenRouter</button>
+                    <button id="btnSignOut" disabled>Sign out</button>
+                    <span id="authStatus" class="badge">Signed out</span>
+                </div>
+                <div class="hint">Sign in is recommended. Manual API key entry is still available below.</div>
+            </div>
             <div class="field">
                 <label for="apiKey">OpenRouter API Key</label>
                 <input type="password" id="apiKey" placeholder="sk-or-v1-..." autocomplete="off">
@@ -109,8 +118,8 @@
         <a href="https://openrouter.ai" target="_blank" rel="noreferrer noopener">Powered by OpenRouter</a>
     </footer>
 
-    <script src="dist/jszip.min.js"></script>
-    <script src="script.js"></script>
+    <script src="src/3rd-party/jszip.min.js"></script>
+    <script src="src/script.js"></script>
 </body>
 </html>
 
