@@ -81,7 +81,21 @@ The total length of the generated caption is expected to be around the length of
           Do not exceed 1 sentence.
           Do not be too specific. Follow general rules for training a lora on an art style.`,
       };
-      return [girl, boy, style];
+      const action = {
+        name: 'Action/Concept',
+        prompt:
+          `Caption this image for a action/concept LoRA. The action/concept being trained is: [FILL THIS IN]
+          Do not describe the action in detail, as the goal is to associate the action/concept with a keyword. 
+          For example,
+          1. if the action is "running", a bad caption would include "he runs, moving his legs quickly and covering a lot of ground". A good caption would include simply "he is running".
+          2. if the action is "jumping", a bad caption would include "he is jumping, going up into the air and coming back down". a good caption would include simply "he is jumping".
+          3. if the concept is "slimed", a bad caption would be "he gets slimed, green goo sprays from the hose and covers his body", a good caption would include "he gets slimed".
+          the caption should briefly and straightforwardly describe the scene, briefly and straightforwardly describe the scene the actors,and include the action
+          
+          Do not exceed 1 sentence.
+          Do not be too specific. Follow general rules for training a lora on an art style.`,
+      };
+      return [girl, boy, style, action];
     }
 
     function loadPresets() {
