@@ -758,14 +758,14 @@ The total length of the generated caption is expected to be around the length of
         renderModelOptions();
         
         // Set default model
-        const defaultModel = 'google/gemini-2.5-flash';
+        const defaultModel = 'qwen/qwen2.5-vl-72b-instruct';
         const modelExists = state.models.some(m => m.id === defaultModel);
         if (modelExists) {
           selectModel(defaultModel);
         } else {
-          // Fallback to first Google model or first model
-          const googleModels = state.models.filter(m => getModelProvider(m.id) === 'google');
-          const fallbackModel = googleModels.length > 0 ? googleModels[0] : state.models[0];
+          // Fallback to first Qwen model or first model
+          const qwenModels = state.models.filter(m => getModelProvider(m.id) === 'qwen');
+          const fallbackModel = qwenModels.length > 0 ? qwenModels[0] : state.models[0];
           if (fallbackModel) selectModel(fallbackModel.id);
         }
       } catch (error) {
@@ -782,7 +782,7 @@ The total length of the generated caption is expected to be around the length of
     function renderModelOptions() {
       if (!ui.modelOptions) return;
       
-      const provider = ui.providerFilter?.value || 'google';
+      const provider = ui.providerFilter?.value || 'qwen';
       const searchTerm = (ui.modelSearch?.value || '').toLowerCase();
       
       const filteredModels = state.models.filter(model => {
