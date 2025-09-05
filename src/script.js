@@ -643,17 +643,22 @@ The total length of the generated caption is expected to be around the length of
             signal,
           });
           const text = typeof result === 'string' ? result : String(result);
-          if (/^\s*no caption returned\s*$/i.test(text)) {
+          const trimmedText = text.trim();
+          
+          // Check for various invalid/error responses
+          if (/^\s*no caption returned\s*$/i.test(trimmedText) ||
+              /^\s*ext\s*$/i.test(trimmedText) ||
+              trimmedText.length <= 3) {
             if (attempt < retryLimit) {
-              throw new Error('No caption returned');
+              throw new Error('Invalid caption returned: ' + trimmedText);
             }
-            throw new Error('No caption returned');
+            throw new Error('Invalid caption returned: ' + trimmedText);
           }
           return text;
         } catch (err) {
           const msg = (err && err.message) ? err.message : String(err);
           lastErr = err;
-          if (/no caption returned/i.test(msg)) {
+          if (/no caption returned|invalid caption returned/i.test(msg)) {
             if (attempt < retryLimit) continue;
             throw err;
           }
