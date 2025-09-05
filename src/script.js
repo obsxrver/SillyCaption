@@ -754,7 +754,14 @@ The total length of the generated caption is expected to be around the length of
       try {
         const response = await fetch('https://openrouter.ai/api/v1/models');
         const data = await response.json();
-        state.models = data.data.sort((a, b) => a.id.localeCompare(b.id));
+        // Filter to only include models that support image inputs
+        state.models = data.data
+          .filter(model => {
+            return model.architecture && 
+                   model.architecture.input_modalities && 
+                   model.architecture.input_modalities.includes('image');
+          })
+          .sort((a, b) => a.id.localeCompare(b.id));
         renderModelOptions();
         
         // Set default model
