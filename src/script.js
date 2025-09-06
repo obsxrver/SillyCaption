@@ -42,6 +42,7 @@
       providerFilter: el('providerFilter'),
       modelSearch: el('modelSearch'),
       modelOptions: el('modelOptions'),
+      sortOrder: el('sortOrder'),
     };
 
     // Persistent storage keys
@@ -759,14 +760,17 @@ The total length of the generated caption is expected to be around the length of
       try {
         const response = await fetch('https://openrouter.ai/api/v1/models');
         const data = await response.json();
-        // Filter to only include models that support image inputs
+        // Filter to only include models that support image inputs and store original order
         state.models = data.data
           .filter(model => {
             return model.architecture && 
                    model.architecture.input_modalities && 
                    model.architecture.input_modalities.includes('image');
           })
-          .sort((a, b) => a.id.localeCompare(b.id));
+          .map((model, index) => ({
+            ...model,
+            originalIndex: index // Store original chronological order
+          }));
         renderModelOptions();
         
         // Set default model
@@ -796,14 +800,22 @@ The total length of the generated caption is expected to be around the length of
       
       const provider = ui.providerFilter?.value || 'qwen';
       const searchTerm = (ui.modelSearch?.value || '').toLowerCase();
+      const sortOrder = ui.sortOrder?.value || 'alphabetical';
       
-      const filteredModels = state.models.filter(model => {
+      let filteredModels = state.models.filter(model => {
         const modelProvider = getModelProvider(model.id);
         const matchesProvider = provider === 'all' || modelProvider === provider;
         const matchesSearch = model.id.toLowerCase().includes(searchTerm) || 
                              (model.name && model.name.toLowerCase().includes(searchTerm));
         return matchesProvider && matchesSearch;
       });
+
+      // Apply sorting
+      if (sortOrder === 'alphabetical') {
+        filteredModels.sort((a, b) => a.id.localeCompare(b.id));
+      } else if (sortOrder === 'chronological') {
+        filteredModels.sort((a, b) => a.originalIndex - b.originalIndex);
+      }
 
       ui.modelOptions.innerHTML = '';
       
@@ -875,6 +887,9 @@ The total length of the generated caption is expected to be around the length of
       }
       if (ui.modelSearch) {
         ui.modelSearch.addEventListener('input', renderModelOptions);
+      }
+      if (ui.sortOrder) {
+        ui.sortOrder.addEventListener('change', renderModelOptions);
       }
     }
 
