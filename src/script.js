@@ -57,25 +57,27 @@
     // Presets helpers
     function defaultPresets() {
       const girl = {
-        name: 'Character LoRA - Girl',
+        name: 'Character LoRA - Woman',
         prompt:
           `Caption this image for a character LoRA. 
-Start with the word 'ohwx', what the subject is, (a girl in this case), then briefly describe what the person is wearing, then how they are posed/what they are doing, if their eyes are closed(else where they are looking (don't include if they *are* looking at the camera), then the background. 
-As is always the case with character loras, don't describe features intrinsic to their identity, like hair color, skin color, eye color, breast size, birthmarks, etc, etc.... 
-Over-verbosity is discouraged. Be as concise and straightforward as possible. Don't give exact specific descriptions for clothing articles and accessories, it is better to be less specific.  
-The total length of the generated caption is expected to be around the length of 1 sentence.`,
+Start with the phrase 'ohwx, a woman ', then describe what the person is wearing, how they are posed, what they are doing, where they are looking (or if their eyes are closed),  and the scene. 
+Again, the response template is 
+"ohwx, a woman [what they are wearing], [how they are posed], [what they are doing], [where they are looking | eyes closed], [the scene]"
+NEVER describe features intrinsic to their identity, like hair color, skin color, eye color, breast size, birthmarks, etc, etc.... 
+The caption must be about 60 tokens in length, no greater. `,
       };
       const boy = {
-        name: 'Character LoRA - Boy',
+        name: 'Character LoRA - Man',
         prompt:
           `Caption this image for a character LoRA. 
-Start with the word 'ohwx', what the subject is, (a boy in this case), then briefly describe what the person is wearing, then how they are posed/what they are doing, if their eyes are closed(else where they are looking (don't include if they *are* looking at the camera), then the background. 
-As is always the case with character loras, don't describe features intrinsic to their identity, like hair color, skin color, eye color, breast size, birthmarks, etc, etc.... 
-Over-verbosity is discouraged. Be as concise and straightforward as possible. Don't give exact specific descriptions for clothing articles and accessories, it is better to be less specific.  
-The total length of the generated caption is expected to be around the length of 1 sentence.`,
+Start with the phrase 'ohwx, a man ', then describe what the person is wearing, how they are posed, what they are doing, where they are looking (or if their eyes are closed),  and the scene. 
+Again, the response template is 
+"ohwx, a man [what they are wearing], [how they are posed], [what they are doing], [where they are looking | eyes closed], [the scene]"
+NEVER describe features intrinsic to their identity, like hair color, skin color, eye color, breast size, birthmarks, etc, etc.... 
+The caption must be about 60 tokens in length, no greater. `,
       };
       const style = {
-        name: 'style',
+        name: 'Style LoRA',
         prompt:
           `Caption this image for a style LoRA. The caption should be a brief description of what is 
           happening in the image or video, ending with the phrase 'in the style of s7yle'. 
@@ -85,16 +87,27 @@ The total length of the generated caption is expected to be around the length of
       const action = {
         name: 'Action/Concept',
         prompt:
-          `Caption this image for a action/concept LoRA. The action/concept being trained is: [FILL THIS IN]
-          Do not describe the action in detail, as the goal is to associate the action/concept with a keyword. 
-          For example,
-          1. if the action is "running", a bad caption would include "he runs, moving his legs quickly and covering a lot of ground". A good caption would include simply "he is running".
-          2. if the action is "jumping", a bad caption would include "he is jumping, going up into the air and coming back down". a good caption would include simply "he is jumping".
-          3. if the concept is "slimed", a bad caption would be "he gets slimed, green goo sprays from the hose and covers his body", a good caption would include "he gets slimed".
-          the caption should briefly and straightforwardly describe the scene, briefly and straightforwardly describe the scene the actors,and include the action
-          
-          Do not exceed 1 sentence.
-          Do not be too specific. Follow general rules for training a lora on an art style.`,
+          `You are an expert film-script supervisor who writes dense, WAN-2.1-optimized video captions.
+
+Your output will be fed directly to a 14 B-parameter diffusion-transformer that expects precise motion, camera and style tokens.
+
+Follow the rules below EXACTLY - no prose, no markdown, just the raw caption.
+
+Length: 35-60 words (≈45 tokens).
+First sentence = ultra-short synopsis (≤10 words).
+Second sentence MUST start with the word “Camera” and describe motion, lens, angle, speed, DOF.
+Include ≥1 action verb from this list: rotate, swing, vault, bounce, ricochet, billow, cascade, pan-left, dolly-in, orbit-cw, etc.
+Add motion details: speed (slow, brisk, violent), path (arcing, spiral, zig-zag), physics (weightless, heavy).
+If humans or animals are within 20 % of frame edge, append: “fingers intact, no extra limbs.”
+End with exactly one style token: “cinematic”, “anime”, “documentary”, “70s-grindhouse”, “Studio-Ghibli”, etc.
+Mention on-screen text verbatim in double quotes if present.
+Omit brand names, prices, URLs, meta-commentary.
+Write in continuous paragraph form, no line breaks, no bullet points.
+Example to imitate:
+
+“Firebreather blows a 3-m orange flame. Camera slowly orbits counter-clockwise at waist level, 24 mm lens, deep focus. Performer's cheeks billow, flame swirls outward in spiral, heat-haze shimmering, dark backyard, cinematic.”
+
+Begin.`,
       };
       return [girl, boy, style, action];
     }
