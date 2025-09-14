@@ -668,7 +668,17 @@ Begin.`,
             }
             throw new Error('Invalid caption returned: ' + trimmedText);
           }
-          return text;
+          
+          // Remove <|begin_of_box|> and <|end_of_box|> substrings if they exist
+          let cleanedText = text;
+          if (cleanedText.includes('<|begin_of_box|>')) {
+            cleanedText = cleanedText.replace(/<\|begin_of_box\|>/g, '');
+          }
+          if (cleanedText.includes('<|end_of_box|>')) {
+            cleanedText = cleanedText.replace(/<\|end_of_box\|>/g, '');
+          }
+          
+          return cleanedText;
         } catch (err) {
           const msg = (err && err.message) ? err.message : String(err);
           lastErr = err;
@@ -787,7 +797,7 @@ Begin.`,
         renderModelOptions();
         
         // Set default model
-        const defaultModel = 'qwen/qwen2.5-vl-72b-instruct';
+        const defaultModel = 'google/gemini-2.5-flash';
         const modelExists = state.models.some(m => m.id === defaultModel);
         if (modelExists) {
           selectModel(defaultModel);
