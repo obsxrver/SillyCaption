@@ -678,6 +678,9 @@ Begin.`,
             cleanedText = cleanedText.replace(/<\|end_of_box\|>/g, '');
           }
           
+          // Trim the cleaned text to remove any leading/trailing whitespace
+          cleanedText = cleanedText.trim();
+          
           return cleanedText;
         } catch (err) {
           const msg = (err && err.message) ? err.message : String(err);
