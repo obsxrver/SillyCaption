@@ -59,22 +59,50 @@
       const girl = {
         name: 'Character LoRA - Woman',
         prompt:
-          `Caption this image for a character LoRA. 
-Start with the phrase 'ohwx, a woman ', then describe what the person is wearing, how they are posed, what they are doing, where they are looking (or if their eyes are closed),  and the scene. 
-Again, the response template is 
-"ohwx, a woman [what they are wearing], [how they are posed], [what they are doing], [where they are looking | eyes closed], [the scene]"
-NEVER describe features intrinsic to their identity, like hair color, skin color, eye color, breast size, birthmarks, etc, etc.... 
-The caption must be about 60 tokens in length, no greater. `,
+          `Generate a caption for this image following this exact format:
+"ohwx, a woman [clothing], [action/pose], [gaze direction], [scene/setting], [lighting]"
+
+Rules:
+1. Clothing: List all visible clothing items
+2. Action/Pose: Describe what she is doing
+3. Gaze Direction: State where she's looking OR write "eyes closed"
+   - If looking at viewer/camera, write "looking ahead" instead
+4. Scene/Setting: Describe the environment/background
+5. Lighting: Describe the lighting conditions
+
+STRICT REQUIREMENTS:
+- NEVER describe physical features (hair color, skin tone, eye color, body proportions, birthmarks, etc.)
+- Keep caption under 60 tokens
+- Use concise, descriptive language
+- Separate each section with commas
+- Start every caption with "ohwx, a woman"
+
+Example output:
+"ohwx, a woman wearing a white dress and sandals, sitting on a bench, looking to the side, in a sunny park, soft natural lighting"`,
       };
       const boy = {
         name: 'Character LoRA - Man',
         prompt:
-          `Caption this image for a character LoRA. 
-Start with the phrase 'ohwx, a man ', then describe what the person is wearing, how they are posed, what they are doing, where they are looking (or if their eyes are closed),  and the scene. 
-Again, the response template is 
-"ohwx, a man [what they are wearing], [how they are posed], [what they are doing], [where they are looking | eyes closed], [the scene]"
-NEVER describe features intrinsic to their identity, like hair color, skin color, eye color, breast size, birthmarks, etc, etc.... 
-The caption must be about 60 tokens in length, no greater. `,
+          `Generate a caption for this image following this exact format:
+"ohwx, a man [clothing], [action/pose], [gaze direction], [scene/setting], [lighting]"
+
+Rules:
+1. Clothing: List all visible clothing items
+2. Action/Pose: Describe what he is doing
+3. Gaze Direction: State where he's looking OR write "eyes closed"
+   - If looking at viewer/camera, write "looking ahead" instead
+4. Scene/Setting: Describe the environment/background
+5. Lighting: Describe the lighting conditions
+
+STRICT REQUIREMENTS:
+- NEVER describe physical features (hair color, skin tone, eye color, body proportions, birthmarks, etc.)
+- Keep caption under 60 tokens
+- Use concise, descriptive language
+- Separate each section with commas
+- Start every caption with "ohwx, a man"
+
+Example output:
+"ohwx, a man wearing a white dress and sandals, sitting on a bench, looking to the side, in a sunny park, soft natural lighting" `,
       };
       const style = {
         name: 'Style LoRA',
