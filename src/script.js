@@ -107,35 +107,82 @@ Example output:
       const style = {
         name: 'Style LoRA',
         prompt:
-          `Caption this image for a style LoRA. The caption should be a brief description of what is 
-          happening in the image or video, ending with the phrase 'in the style of s7yle'. 
-          Do not exceed 1 sentence.
-          Do not be too specific. Follow general rules for training a lora on an art style.`,
+          `Generate a training caption for a style LoRA dataset.
+
+FORMAT: "[general subject/scene description] in the style of s7yle"
+
+WHAT TO DESCRIBE:
+- General subject type (e.g., "a woman", "a landscape", "an animal")
+- Basic action or composition (e.g., "standing", "portrait", "wide shot")
+- Setting type if relevant (e.g., "outdoors", "in a room", "urban scene")
+- Overall mood/atmosphere (e.g., "dramatic", "peaceful", "dynamic")
+
+WHAT TO AVOID:
+- Specific details (names, exact locations, brands)
+- Colors (the style should determine these)
+- Artistic techniques (brushstrokes, medium, texture)
+- Style descriptors (the LoRA will learn these)
+- Complex or overly detailed descriptions
+
+REQUIREMENTS:
+- Single sentence only
+- Always end with "in the style of s7yle"
+- Keep descriptions generic enough to apply the style to various subjects
+- 5-15 words before the style trigger phrase
+
+GOOD EXAMPLES:
+✓ "a woman posing for a portrait in the style of s7yle"
+✓ "a serene landscape with mountains in the style of s7yle"
+✓ "an action scene with dynamic movement in the style of s7yle"
+
+BAD EXAMPLES:
+✗ "a blonde woman in a red dress sitting on a Victorian chair in the style of s7yle" (too specific)
+✗ "vibrant colors and bold brushstrokes in the style of s7yle" (describes style itself)
+✗ "in the style of s7yle" (no subject description)`,
       };
       const action = {
-        name: 'Action/Concept',
+        name: 'Action/Concept (Replace [trigger_action] with your specific concept keyword)',
         prompt:
-          `You are an expert film-script supervisor who writes dense, WAN-2.1-optimized video captions.
+          `Generate a training caption for a concept/action LoRA dataset.
 
-Your output will be fed directly to a 14 B-parameter diffusion-transformer that expects precise motion, camera and style tokens.
+FORMAT: "[subject] [trigger_action], [context/variation]"
 
-Follow the rules below EXACTLY - no prose, no markdown, just the raw caption.
+CAPTION STRUCTURE:
+1. Subject: Who/what is performing the action (keep generic)
+2. Trigger phrase: The exact action keyword (e.g., "z00ming", "levit8ing", "sp1nning")
+3. Context: Brief description of how/where the action occurs
 
-Length: 35-60 words (≈45 tokens).
-First sentence = ultra-short synopsis (≤10 words).
-Second sentence MUST start with the word “Camera” and describe motion, lens, angle, speed, DOF.
-Include ≥1 action verb from this list: rotate, swing, vault, bounce, ricochet, billow, cascade, pan-left, dolly-in, orbit-cw, etc.
-Add motion details: speed (slow, brisk, violent), path (arcing, spiral, zig-zag), physics (weightless, heavy).
-If humans or animals are within 20 % of frame edge, append: “fingers intact, no extra limbs.”
-End with exactly one style token: “cinematic”, “anime”, “documentary”, “70s-grindhouse”, “Studio-Ghibli”, etc.
-Mention on-screen text verbatim in double quotes if present.
-Omit brand names, prices, URLs, meta-commentary.
-Write in continuous paragraph form, no line breaks, no bullet points.
-Example to imitate:
+WHAT TO INCLUDE:
+- The trigger word/phrase in EVERY caption
+- Variations in subject (person, object, animal)
+- Variations in setting/context
+- Different intensities or speeds of the action
+- Simple environmental details
 
-“Firebreather blows a 3-m orange flame. Camera slowly orbits counter-clockwise at waist level, 24 mm lens, deep focus. Performer's cheeks billow, flame swirls outward in spiral, heat-haze shimmering, dark backyard, cinematic.”
+WHAT TO AVOID:
+- Overly specific details (colors, clothing, names)
+- Technical camera terms (unnecessary for LoRA)
+- Multiple actions (focus on the one being trained)
+- Style descriptors (unless part of the concept)
+- Complex sentences
 
-Begin.`,
+REQUIREMENTS:
+- 5-15 words total
+- Always include the trigger phrase exactly as specified
+- Keep subjects generic to allow flexible application
+- Single sentence, no punctuation except commas if needed
+
+EXAMPLES for "fl0ating" trigger:
+✓ "a person fl0ating above the ground in a room"
+✓ "objects fl0ating in midair outdoors"
+✓ "a cat fl0ating gently through the scene"
+✓ "someone fl0ating horizontally in space"
+
+EXAMPLES for "expl0ding" trigger:
+✓ "a building expl0ding with debris flying outward"
+✓ "small objects expl0ding into particles"
+✓ "something expl0ding in slow motion"
+`
       };
       return [girl, boy, style, action];
     }
