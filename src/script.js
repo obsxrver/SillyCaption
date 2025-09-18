@@ -305,7 +305,9 @@ EXAMPLES for "expl0ding" trigger:
       ui.results.innerHTML = '';
       ui.progressBar.value = 0;
       ui.progressText.textContent = 'Idle';
+      ui.progressText.className = '';
       ui.files.value = '';
+      ui.files.classList.remove('processing');
       resultsStore.clear();
       updateSaveZipButton();
     });
@@ -314,6 +316,8 @@ EXAMPLES for "expl0ding" trigger:
       if (state.abortController) state.abortController.abort();
       setRunning(false);
       ui.progressText.textContent = 'Cancelled';
+      ui.progressText.className = 'error';
+      ui.files.classList.remove('processing');
     });
 
     // --- OAuth (PKCE) integration ---
@@ -447,8 +451,25 @@ EXAMPLES for "expl0ding" trigger:
       const maxConcurrency = clamp(parseInt(ui.concurrency.value, 10) || 1, 1, 20);
       const retryLimit = clamp(parseInt(ui.retryLimit.value, 10) || 0, 0, 5);
       const targetMp = clamp(parseFloat(ui.downscaleMp.value) || 1, 0.2, 5);
+
+      // Show upload progress while preparing items
+      ui.progressText.textContent = 'Preparing files...';
+      ui.progressText.className = 'processing';
+      ui.progressBar.value = 0;
+      ui.files.classList.add('processing');
   
-      const items = await prepareItems(files, framesPerVideo);
+      let items;
+      try {
+        items = await prepareItems(files, framesPerVideo);
+      } catch (error) {
+        ui.files.classList.remove('processing');
+        ui.progressText.textContent = 'Error preparing files: ' + (error.message || 'Unknown error');
+        ui.progressText.className = 'error';
+        setRunning(false);
+        return;
+      }
+      
+      ui.files.classList.remove('processing');
       const totalRequests = items.length;
       updateProgress(0, totalRequests);
   
@@ -486,8 +507,14 @@ EXAMPLES for "expl0ding" trigger:
         await runWithLimiter(tasks, limiter);
         if (!state.running) return; // cancelled
         ui.progressText.textContent = 'Done';
+        ui.progressText.className = 'success';
+      } catch (error) {
+        ui.progressText.textContent = 'Error: ' + (error.message || 'Unknown error');
+        ui.progressText.className = 'error';
+        console.error('Captioning error:', error);
       } finally {
         if (limiter && typeof limiter.dispose === 'function') limiter.dispose();
+        ui.files.classList.remove('processing');
         setRunning(false);
       }
     });
@@ -505,16 +532,32 @@ EXAMPLES for "expl0ding" trigger:
   
     async function prepareItems(files, framesPerVideo) {
       const items = [];
+      let processed = 0;
+      const totalFiles = files.length;
   
       for (const file of files) {
+        const fileProgress = Math.round((processed / totalFiles) * 100);
+        ui.progressText.textContent = `Preparing files... (${processed + 1}/${totalFiles})`;
+        ui.progressBar.value = fileProgress;
+        
         if (isImage(file)) {
           const dataUrl = await readFileAsDataURL(file);
           items.push({ kind: 'image', name: file.name, type: file.type, dataUrl: dataUrl });
         } else if (isVideo(file)) {
+          ui.progressText.textContent = `Processing video frames... (${processed + 1}/${totalFiles})`;
           const frames = await extractVideoFrames(file, framesPerVideo);
           items.push({ kind: 'video', name: file.name, type: file.type, dataUrls: frames });
         }
+        processed++;
       }
+      
+      // Final progress update
+      ui.progressText.textContent = `Files ready! Starting captioning...`;
+      ui.progressBar.value = 100;
+      
+      // Brief pause to show completion before starting captioning
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       return items;
     }
   
@@ -539,8 +582,11 @@ EXAMPLES for "expl0ding" trigger:
         const duration = video.duration || 0;
         const timestamps = Array.from({ length: framesPerVideo }, (_, i) => ((i + 1) / (framesPerVideo + 1)) * duration);
         const frames = [];
-        for (const t of timestamps) {
-          frames.push(await captureFrame(video, t));
+        
+        for (let i = 0; i < timestamps.length; i++) {
+          const frameProgress = Math.round(((i + 1) / timestamps.length) * 100);
+          ui.progressText.textContent = `Extracting video frames... (${i + 1}/${timestamps.length})`;
+          frames.push(await captureFrame(video, timestamps[i]));
         }
         return frames;
       } finally {

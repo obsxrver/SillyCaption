@@ -347,6 +347,7 @@ input[type="file"] {
   transition: all 0.2s ease;
   cursor: pointer;
   text-align: center;
+  position: relative;
 }
 
 input[type="file"]:hover {
@@ -359,6 +360,29 @@ input[type="file"]:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(92, 200, 255, 0.1);
+}
+
+input[type="file"].processing {
+  border-color: var(--accent-color);
+  background: rgba(14, 19, 24, 0.9);
+  border-style: solid;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+input[type="file"].processing::after {
+  content: 'Processing files...';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(92, 200, 255, 0.1);
+  color: var(--accent-color);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid rgba(92, 200, 255, 0.3);
+  backdrop-filter: blur(8px);
 }
 
 /* Grid improvements */
@@ -782,6 +806,19 @@ textarea:focus-visible {
   font-weight: 500;
   color: var(--text-secondary);
   min-width: 100px;
+  transition: color 0.3s ease;
+}
+
+#progressText.processing {
+  color: var(--accent-color);
+}
+
+#progressText.error {
+  color: var(--danger-color);
+}
+
+#progressText.success {
+  color: var(--ok-color);
 }
 
 /* Improved card animations */
