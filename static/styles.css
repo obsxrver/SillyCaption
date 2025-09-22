@@ -29,7 +29,32 @@
 html {
   scroll-behavior: smooth;
 }
+/* Style for caption textarea inside cards */
 
+.caption textarea {
+  width: 100%;
+  min-height: 80px;
+  max-width: 100%;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: rgba(14, 19, 24, 0.85);
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  padding: 8px 10px;
+  resize: none; /* disable manual resize */
+  transition: border-color 0.2s, background 0.2s;
+  margin: 0;
+  outline: none;
+  overflow-y: auto;
+  max-height: 200px; /* reduced max height, enable scrolling */
+}
+
+.caption textarea:focus {
+  border-color: var(--accent-color);
+  background: rgba(14, 19, 24, 0.98);
+}
 ::selection {
   background: rgba(92, 200, 255, 0.3);
   color: var(--text);
@@ -464,7 +489,7 @@ input[type="file"].processing::after {
 
   .caption {
     font-size: 13px;
-    padding: 14px;
+    padding: 8px;
     word-wrap: break-word;
     overflow-wrap: break-word;
     hyphens: auto;
@@ -733,7 +758,7 @@ progress::-moz-progress-bar {
 }
 
 .caption { 
-  padding: 16px; 
+  padding: 8px; 
   font-size: 14px; 
   line-height: 1.6; 
   white-space: pre-wrap; 

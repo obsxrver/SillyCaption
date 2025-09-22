@@ -539,7 +539,7 @@ Max. 60 tokens.
       } else if (isVideo(file)) {
         ui.progressText.textContent = `Processing video frames... (${processed + 1}/${totalFiles})`;
         const frames = await extractVideoFrames(file, framesPerVideo);
-        items.push({ kind: 'video', name: file.name, type: file.type, dataUrls: frames });
+        items.push({ kind: 'video', name: file.name, type: file.type, dataUrls: frames, file: file });
       }
       processed++;
     }
@@ -626,41 +626,109 @@ Max. 60 tokens.
     const right = document.createElement('div');
     const caption = document.createElement('div');
     caption.className = 'caption';
-    caption.textContent = '… captioning';
-
+    const captionText = document.createElement('textarea');
+    caption.appendChild(captionText);
+    captionText.placeholder = 'Captioning... ';
+    captionText.setAttribute('spellcheck', 'true');
+    captionText.setAttribute('autocomplete', 'off');
+    captionText.setAttribute('autocorrect', 'off');
+    captionText.setAttribute('autocapitalize', 'off');
+    captionText.style.resize = 'none'; // disable manual resize
+    captionText.style.overflowY = 'hidden';
+    // Dynamically adjust height
+    function autoResize() {
+      captionText.style.height = 'auto';
+      const maxHeight = 200; // Match CSS max-height
+      const newHeight = Math.min(captionText.scrollHeight, maxHeight);
+      captionText.style.height = newHeight + 'px';
+      
+      // If content exceeds max height, enable scrolling
+      if (captionText.scrollHeight > maxHeight) {
+        captionText.style.overflowY = 'auto';
+      } else {
+        captionText.style.overflowY = 'hidden';
+      }
+    }
+    captionText.addEventListener('input', function () {
+      autoResize();
+      // Update resultsStore on edit
+      if (item && item.name) {
+        const entry = resultsStore.get(item.name);
+        if (entry) {
+          entry.caption = captionText.value;
+        } else {
+          resultsStore.set(item.name, { caption: captionText.value, error: null });
+        }
+      }
+      updateSaveZipButton();
+    });
+    // Prevent manual width/height adjustment
+    captionText.addEventListener('mousedown', function (e) {
+      if (e.target === captionText && (e.offsetX > captionText.clientWidth - 20 || e.offsetY > captionText.clientHeight - 20)) {
+        e.preventDefault();
+      }
+    });
+    // Initial auto-resize
+    setTimeout(autoResize, 0);
     if (item.kind === 'image') {
       const img = document.createElement('img');
       img.src = item.dataUrl;
       img.alt = item.name;
       left.appendChild(img);
     } else if (item.kind === 'video') {
-      // Show first frame as preview
-      const img = document.createElement('img');
-      img.src = item.dataUrls[0];
-      img.alt = item.name;
-      left.appendChild(img);
+      const video = document.createElement('video');
+      if (item.file) {
+        video.src = URL.createObjectURL(item.file);
+      }
+      video.controls = true;
+      video.muted = true;
+      video.loop = true;
+      video.preload = 'metadata';
+      video.style.maxWidth = '100%';
+      video.style.maxHeight = '180px';
+      left.appendChild(video);
+      // Revoke object URL when card is removed from DOM
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          mutation.removedNodes.forEach((node) => {
+            if (node === card && video.src && video.src.startsWith('blob:')) {
+              URL.revokeObjectURL(video.src);
+              observer.disconnect();
+            }
+          });
+        });
+      });
+      observer.observe(ui.results, { childList: true });
     }
-
     const meta = document.createElement('div');
     meta.className = 'meta';
     meta.textContent = `${item.name}`;
-
     right.appendChild(caption);
-
     media.appendChild(left);
     media.appendChild(right);
     card.appendChild(media);
     card.appendChild(meta);
     ui.results.appendChild(card);
+    // Store textarea for later use
+    card._captionText = captionText;
     return card;
   }
 
   function setCardCaption(card, text) {
     const caption = card.querySelector('.caption');
-    caption.textContent = text;
+    const textarea = card._captionText || caption.querySelector('textarea');
+    if (textarea) {
+      textarea.value = text;
+      // Trigger input event to auto-resize and update store
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    } else {
+      caption.textContent = text;
+    }
     caption.classList.remove('error');
   }
-
+  function updateCaption(name,text){
+    resultsStore.get(name).caption=text;
+  }
   function setCardError(card, err) {
     const caption = card.querySelector('.caption');
     caption.textContent = (err && err.message) ? err.message : String(err);
