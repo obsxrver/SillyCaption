@@ -182,8 +182,7 @@ Max. 60 tokens.
       // ensure shape
       let userpresets = arr.filter((p) => p && typeof p.name === 'string' && typeof p.prompt === 'string');
       console.log(userpresets);
-      let defaults = defaultPresets();
-      for (preset in defaults) {
+      for (const preset of defaultPresets()) {  
         if (!userpresets.find((p) => p.name === preset.name)) {
           userpresets.push(preset);
         }
