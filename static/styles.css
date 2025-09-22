@@ -34,7 +34,7 @@ html {
 .caption textarea {
   width: 100%;
   min-height: 80px;
-  max-width: 100%;
+  max-width: 400px; /* limit maximum width for better readability */
   box-sizing: border-box;
   border-radius: 8px;
   border: 1px solid var(--border-light);
@@ -45,10 +45,12 @@ html {
   padding: 8px 10px;
   resize: none; /* disable manual resize */
   transition: border-color 0.2s, background 0.2s;
-  margin: 0;
+  margin: 0 auto; /* center horizontally */
   outline: none;
   overflow-y: auto;
   max-height: 200px; /* reduced max height, enable scrolling */
+  display: block; /* ensure margin auto works */
+  flex-shrink: 0; /* prevent shrinking in flex container */
 }
 
 .caption textarea:focus {
@@ -493,6 +495,13 @@ input[type="file"].processing::after {
     word-wrap: break-word;
     overflow-wrap: break-word;
     hyphens: auto;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  
+  .caption textarea {
+    max-width: 100%; /* allow full width on mobile */
   }
 
   .meta {
@@ -765,6 +774,9 @@ progress::-moz-progress-bar {
   background: rgba(14, 19, 24, 0.2);
   margin: 0;
   color: var(--text-secondary);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 
 .meta { 
