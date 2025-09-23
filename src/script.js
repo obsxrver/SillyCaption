@@ -702,7 +702,43 @@ Max. 60 tokens.
     }
     const meta = document.createElement('div');
     meta.className = 'meta';
-    meta.textContent = `${item.name}`;
+    const metaLeft = document.createElement('div');
+    metaLeft.className = 'meta-left';
+    const fileNameEl = document.createElement('span');
+    fileNameEl.className = 'file-name';
+    fileNameEl.textContent = `${item.name}`;
+    fileNameEl.title = item.name; // show full name on hover
+    metaLeft.appendChild(fileNameEl);
+
+    const metaRight = document.createElement('div');
+    metaRight.className = 'meta-right';
+    const btnCopy = document.createElement('button');
+    btnCopy.className = 'btnCopy icon-btn hidden';
+    btnCopy.innerHTML = `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="9" y="9" width="11" height="11" rx="2"/>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+      </svg>`;
+    btnCopy.setAttribute('aria-label', 'Copy caption');
+    btnCopy.title = 'Copy caption';
+    btnCopy.addEventListener('click', () => copyCaption(card));
+    const btnReroll = document.createElement('button');
+    btnReroll.className = 'btnReroll icon-btn';
+    btnReroll.innerHTML = `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 6v6h-6"/>
+        <path d="M21 12a9 9 0 1 1-3-6.708"/>
+        <path d="M3 18v-6h6"/>
+        <path d="M3 12a9 9 0 0 0 3 6.708"/>
+      </svg>`;
+    btnReroll.setAttribute('aria-label', 'Re-roll caption');
+    btnReroll.title = 'Re-roll caption';
+    btnReroll.addEventListener('click', () => rerollCaption(card, item));
+    metaRight.appendChild(btnCopy);
+    metaRight.appendChild(btnReroll);
+
+    meta.appendChild(metaLeft);
+    meta.appendChild(metaRight);
     right.appendChild(caption);
     media.appendChild(left);
     media.appendChild(right);
@@ -711,6 +747,9 @@ Max. 60 tokens.
     ui.results.appendChild(card);
     // Store textarea for later use
     card._captionText = captionText;
+    card._btnCopy = btnCopy;
+    card._btnReroll = btnReroll;
+    card._item = item;
     return card;
   }
 
@@ -725,6 +764,7 @@ Max. 60 tokens.
       caption.textContent = text;
     }
     caption.classList.remove('error');
+    if (card._btnCopy) card._btnCopy.classList.remove('hidden');
   }
   function updateCaption(name,text){
     resultsStore.get(name).caption=text;
@@ -733,6 +773,54 @@ Max. 60 tokens.
     const caption = card.querySelector('.caption');
     caption.textContent = (err && err.message) ? err.message : String(err);
     caption.classList.add('error');
+    if (card._btnCopy) card._btnCopy.classList.add('hidden');
+  }
+
+  async function copyCaption(card) {
+    try {
+      const textarea = card._captionText || card.querySelector('.caption textarea');
+      const text = textarea ? textarea.value : (card.querySelector('.caption')?.textContent || '');
+      if (!text || card.querySelector('.caption').classList.contains('error')) return;
+      await navigator.clipboard.writeText(text);
+      const original = card._btnCopy.innerHTML;
+      card._btnCopy.innerHTML = `
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>`;
+      setTimeout(() => { card._btnCopy.innerHTML = original; }, 900);
+    } catch (e) { /* ignore */ }
+  }
+
+  async function rerollCaption(card, item) {
+    if (state.running) return; // avoid interfering with main batch
+    try {
+      const apiKey = getAuthKey();
+      if (!apiKey) { alert('Enter API key first.'); return; }
+      const systemPrompt = ui.systemPrompt.value.trim();
+      if (!systemPrompt) { alert('Enter system prompt.'); return; }
+      const retryLimit = clamp(parseInt(ui.retryLimit.value, 10) || 0, 0, 5);
+      const targetMp = clamp(parseFloat(ui.downscaleMp.value) || 1, 0.2, 5);
+
+      card._btnReroll.disabled = true;
+      const caption = await captionItem({
+        apiKey,
+        model: ui.modelId.value,
+        systemPrompt,
+        item,
+        signal: undefined,
+        retryLimit,
+        targetMp,
+      });
+      setCardCaption(card, caption);
+      resultsStore.set(item.name, { caption, error: null });
+      updateSaveZipButton();
+    } catch (err) {
+      setCardError(card, err);
+      resultsStore.set(item.name, { caption: '', error: (err && err.message) ? err.message : String(err) });
+      updateSaveZipButton();
+    } finally {
+      card._btnReroll.disabled = false;
+    }
   }
 
   // Store of results for ZIP creation: Map<itemName, { caption: string, error: string|null }>

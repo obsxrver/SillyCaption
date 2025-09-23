@@ -34,7 +34,7 @@ html {
 .caption textarea {
   width: 100%;
   min-height: 80px;
-  max-width: 400px; /* limit maximum width for better readability */
+  max-width: 100%;
   box-sizing: border-box;
   border-radius: 8px;
   border: 1px solid var(--border-light);
@@ -45,12 +45,13 @@ html {
   padding: 8px 10px;
   resize: none; /* disable manual resize */
   transition: border-color 0.2s, background 0.2s;
-  margin: 0 auto; /* center horizontally */
+  margin: 0;
   outline: none;
   overflow-y: auto;
   max-height: 200px; /* reduced max height, enable scrolling */
   display: block; /* ensure margin auto works */
-  flex-shrink: 0; /* prevent shrinking in flex container */
+  flex-shrink: 1; /* allow shrinking to fit container */
+  min-width: 0; /* prevent overflow in flex/grid containers */
 }
 
 .caption textarea:focus {
@@ -489,6 +490,17 @@ input[type="file"].processing::after {
     border-bottom: 1px solid var(--border);
   }
 
+  .meta {
+    grid-template-columns: 1fr;
+  }
+
+  .meta .meta-left {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding-right: 0;
+    padding-bottom: 8px;
+  }
+
   .caption {
     font-size: 13px;
     padding: 8px;
@@ -501,7 +513,8 @@ input[type="file"].processing::after {
   }
   
   .caption textarea {
-    max-width: 100%; /* allow full width on mobile */
+    max-width: 100%;
+    width: 100%;
   }
 
   .meta {
@@ -718,6 +731,7 @@ progress::-moz-progress-bar {
   box-shadow: var(--shadow-lg);
   transition: all 0.3s ease;
   position: relative;
+  min-width: 0; /* allow grid item to shrink */
 }
 
 .card::before {
@@ -747,6 +761,8 @@ progress::-moz-progress-bar {
   display: grid; 
   align-content: start; 
   gap: 12px; 
+  overflow: hidden; /* prevent content from overflowing */
+  min-width: 0; /* allow grid items to shrink below content size */
 }
 
 .media .left { 
@@ -777,6 +793,9 @@ progress::-moz-progress-bar {
   display: flex;
   justify-content: center;
   align-items: flex-start;
+  overflow: hidden; /* prevent overflow */
+  min-width: 0; /* allow flexbox item to shrink */
+  width: 100%; /* take full available width */
 }
 
 .meta { 
@@ -786,6 +805,57 @@ progress::-moz-progress-bar {
   border-top: 1px dashed rgba(31, 38, 48, 0.6); 
   background: rgba(31, 38, 48, 0.2);
   font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  align-items: center;
+  gap: 0;
+}
+
+.meta .meta-left {
+  border-right: 1px solid var(--border);
+  padding-right: 16px;
+  min-width: 0; /* allow truncation */
+}
+
+.meta .file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.meta .meta-right {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding-left: 16px;
+}
+
+.meta .meta-right button {
+  padding: 8px 12px;
+  font-size: 12px;
+  min-width: auto;
+}
+
+.icon-btn {
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.icon-btn:hover {
+  background: rgba(31, 38, 48, 0.4);
+  color: var(--text);
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.icon-btn:active {
+  background: rgba(31, 38, 48, 0.6);
 }
 
 .error { 
