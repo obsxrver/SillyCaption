@@ -766,12 +766,22 @@ Max. 60 tokens.
     caption.classList.remove('error');
     if (card._btnCopy) card._btnCopy.classList.remove('hidden');
   }
-  function updateCaption(name,text){
-    resultsStore.get(name).caption=text;
-  }
   function setCardError(card, err) {
     const caption = card.querySelector('.caption');
-    caption.textContent = (err && err.message) ? err.message : String(err);
+    const textarea = card._captionText || caption.querySelector('textarea');
+    const message = (err && err.message) ? err.message : String(err);
+    if (textarea) {
+      textarea.value = message;
+      try {
+        textarea.style.height = 'auto';
+        const maxHeight = 200;
+        const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+        textarea.style.height = newHeight + 'px';
+        textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
+      } catch {}
+    } else {
+      caption.textContent = message;
+    }
     caption.classList.add('error');
     if (card._btnCopy) card._btnCopy.classList.add('hidden');
   }
