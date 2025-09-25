@@ -1039,7 +1039,8 @@ Max. 60 tokens.
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'X-Title': 'Silly Caption (Local)',
+        'HTTP-Referer': 'https://obsxrver.pro/SillyCaption',
+        'X-Title': 'SillyCaption',
       },
       body: JSON.stringify(body),
       signal,
