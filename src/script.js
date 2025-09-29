@@ -1104,9 +1104,9 @@ Max. 60 tokens.
   function renderModelOptions() {
     if (!ui.modelOptions) return;
 
-    const provider = ui.providerFilter?.value || 'qwen';
+    const provider = ui.providerFilter?.value || 'all';
     const searchTerm = (ui.modelSearch?.value || '').toLowerCase();
-    const sortOrder = ui.sortOrder?.value || 'alphabetical';
+    const sortOrder = ui.sortOrder?.value || 'chronological';
 
     let filteredModels = state.models.filter(model => {
       const modelProvider = getModelProvider(model.id);
