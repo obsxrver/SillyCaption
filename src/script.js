@@ -43,6 +43,8 @@
     modelSearch: el('modelSearch'),
     modelOptions: el('modelOptions'),
     sortOrder: el('sortOrder'),
+    reasoningToggle: el('reasoningToggle'),
+    reasoningToggleField: el('reasoningToggleField'),
   };
 
   // Persistent storage keys
@@ -1029,8 +1031,8 @@ Max. 60 tokens.
         { role: 'user', content: userContent },
       ],
     };
-    // Add reasoning parameter for gemini-2.5-flash
-    if (model === 'google/gemini-2.5-flash') {
+    // Add reasoning parameter if model supports it and toggle is enabled
+    if (modelSupportsReasoning(model) && ui.reasoningToggle && ui.reasoningToggle.checked) {
       body.reasoning = { enabled: true };
     }
     // console.log(body);
@@ -1101,6 +1103,13 @@ Max. 60 tokens.
     return modelId.split('/')[0];
   }
 
+  function modelSupportsReasoning(modelId) {
+    const model = state.models.find(m => m.id === modelId);
+    if (!model || !model.supported_parameters) return false;
+    return model.supported_parameters.includes('reasoning') || 
+           model.supported_parameters.includes('include_reasoning');
+  }
+
   function renderModelOptions() {
     if (!ui.modelOptions) return;
 
@@ -1169,6 +1178,15 @@ Max. 60 tokens.
     const selectedOption = document.querySelector(`.custom-option[data-value="${CSS.escape(model.id)}"]`);
     if (selectedOption) {
       selectedOption.classList.add('selected');
+    }
+
+    // Show/hide reasoning toggle based on model support
+    if (ui.reasoningToggleField) {
+      if (modelSupportsReasoning(modelId)) {
+        ui.reasoningToggleField.style.display = '';
+      } else {
+        ui.reasoningToggleField.style.display = 'none';
+      }
     }
   }
 

@@ -58,6 +58,13 @@
                 </div>
                 <input type="hidden" id="modelId">
             </div>
+            <div class="field" id="reasoningToggleField" style="display: none;">
+                <label>
+                    <input type="checkbox" id="reasoningToggle" checked>
+                    Enable Reasoning
+                </label>
+                <div class="hint">This model supports extended reasoning. Enable for better results (may increase cost).</div>
+            </div>
             <div class="field">
                 <label for="systemPrompt">System Prompt</label>
                 <textarea id="systemPrompt" rows="5" placeholder="Describe exactly how captions should be produced."></textarea>
