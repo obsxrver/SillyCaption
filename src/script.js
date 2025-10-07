@@ -967,10 +967,18 @@ Max. 60 tokens.
       } catch (err) {
         const msg = (err && err.message) ? err.message : String(err);
         lastErr = err;
-        if (/no caption returned|invalid caption returned/i.test(msg)) {
-          if (attempt < retryLimit) continue;
-          throw err;
+        
+        // Check if this is a retryable error
+        const isRetryableError = 
+          /no caption returned|invalid caption returned/i.test(msg) ||
+          /HTTP (429|5\d{2})/i.test(msg); // 429 (rate limit) or 5xx (server errors)
+        
+        if (isRetryableError && attempt < retryLimit) {
+          // Continue to next retry attempt
+          continue;
         }
+        
+        // No more retries or non-retryable error
         throw err;
       }
     }
