@@ -611,7 +611,7 @@ Max. 60 tokens.
           fr.onload = () => resolve(fr.result);
           fr.onerror = () => reject(new Error('Failed to read frame'));
           fr.readAsDataURL(blob);
-        }, 'image/png');
+        }, 'image/jpeg', 0.9);
       };
       video.currentTime = Math.min(Math.max(time, 0), Math.max(video.duration - 0.01, 0));
       video.addEventListener('seeked', onSeeked, { once: true });
