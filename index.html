@@ -10,7 +10,13 @@
 </head>
 <body>
     <header>
-        <h1>Silly Caption</h1>
+        <div class="header-left">
+            <h1>Silly Caption</h1>
+            <div class="subtitle">Serious Edition</div>
+        </div>
+        <a href="https://obsxrver.github.io" target="_blank" rel="noreferrer noopener" class="profile-link">
+            <img src="static/pfp.png" alt="Profile">
+        </a>
     </header>
     <main>
         <section class="controls">
@@ -18,8 +24,10 @@
                 <label>OpenRouter Account</label>
                 <div class="oauth-row">
                     <button id="btnSignIn">Sign in with OpenRouter</button>
-                    <button id="btnSignOut" disabled>Sign out</button>
-                    <span id="authStatus" class="badge">Signed out</span>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <span id="authStatus" class="badge">Signed out</span>
+                        <button id="btnSignOut" disabled>Sign out</button>
+                    </div>
                 </div>
                 <div class="hint">Sign in is recommended. Manual API key entry is still available below.</div>
             </div>
@@ -58,12 +66,12 @@
                 </div>
                 <input type="hidden" id="modelId">
             </div>
-            <div class="field" id="reasoningToggleField" style="display: none;">
-                <label>
+            <div class="field reasoning-field" id="reasoningToggleField" style="display: none;">
+                <label class="switch">
                     <input type="checkbox" id="reasoningToggle" checked>
-                    Enable Reasoning
+                    <span class="slider"></span>
                 </label>
-                <div class="hint">This model supports extended reasoning. Enable for better results (may increase cost).</div>
+                <label>🧠 (Reasoning)</label>
             </div>
             <div class="field">
                 <label for="systemPrompt">System Prompt</label>
@@ -84,32 +92,38 @@
                 <input type="file" id="files" accept="image/*,video/*" multiple>
             </div>
 
-            <div class="field grid-3">
-                <div>
-                    <label for="rps">Max RPS</label>
-                    <input type="number" id="rps" min="1" max="100" value="20">
+            <details class="advanced-section">
+                <summary>Advanced Options</summary>
+                <div class="advanced-content">
+                    <div class="field grid-3">
+                        <div>
+                            <label for="rps">Max RPS</label>
+                            <input type="number" id="rps" min="1" max="100" value="20">
+                        </div>
+                        <div>
+                            <label for="concurrency">Max Concurrency</label>
+                            <input type="number" id="concurrency" min="1" max="60" value="20">
+                        </div>
+                        <div>
+                            <label for="downscaleMp">Downscale Target MP</label>
+                            <input type="number" id="downscaleMp" min="0.2" max="2" step="0.1" value="1">
+                        </div>
+                    </div>
+                    <div class="field grid-3">
+                        <div>
+                            <label for="retryLimit">Retry Limit</label>
+                            <input type="number" id="retryLimit" min="0" max="10" value="4">
+                        </div>
+                        <div>
+                            <label for="framesPerVideo">Frames per Video</label>
+                            <input type="number" id="framesPerVideo" min="1" max="15" value="8">
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label for="concurrency">Max Concurrency</label>
-                    <input type="number" id="concurrency" min="1" max="60" value="20">
-                </div>
-                <div>
-                    <label for="framesPerVideo">Frames per Video</label>
-                    <input type="number" id="framesPerVideo" min="1" max="15" value="8">
-                </div>
-            </div>
-            <div class="field grid-3">
-                <div>
-                    <label for="retryLimit">Retry Limit</label>
-                    <input type="number" id="retryLimit" min="0" max="10" value="4">
-                </div>
-                <div>
-                    <label for="downscaleMp">Downscale Target MP</label>
-                    <input type="number" id="downscaleMp" min="0.2" max="5" step="0.1" value="1">
-                </div>
-                <div style="display:flex;align-items:end">
-                    <button id="btnSaveZip" disabled>Save Captions as ZIP</button>
-                </div>
+            </details>
+
+            <div class="field" style="display:flex;align-items:center;gap:12px;">
+                <button id="btnSaveZip" disabled>Save Captions as ZIP</button>
             </div>
 
             <div class="buttons">
