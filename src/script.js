@@ -82,7 +82,7 @@ STRICT REQUIREMENTS:
 Example output:
 ohwx woman, wearing a t-shirt, cargo pants and running shoes, running on a trail, looking straight ahead, on a path in an Appalachian forest surrounded by trees, sunlight filtered through trees
 ohwx woman, spaghetti sauce-stained oversized T-Shirt,  standing up, arguing and gesturing angrily with her hands, looking at camera, in the kitchen, indoor lighting
-ohwx woman in her underwear, lying on her side in her stomach with her hands on her chin and feet in the air, winking at the camera, in her bedroom, soft red LED lighting`,
+ohwx woman in her underwear, lying on her stomach with her hands on her chin and feet in the air, winking at the camera, in her bedroom, soft red LED lighting`,
     };
     const style = {
       name: 'Style LoRA',
