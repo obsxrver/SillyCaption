@@ -133,7 +133,7 @@ A man in athletic clothing, he gets low to the ground, then backflips, gymnasium
 A CAD Rendering of a model car, 360 degree spin, white background.
 `
     };
-    return [woman, boy, style, action];
+    return [woman,  style, action];
   }
 
   function loadPresets() {
