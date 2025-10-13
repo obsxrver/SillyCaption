@@ -54,6 +54,7 @@
     oauthCodeVerifier: 'sc_oauth_pkce_verifier',
     presets: 'sc_presets',
     lastPreset: 'sc_last_preset',
+    selectedModel: 'sc_selected_model',
   };
 
   // Presets helpers
@@ -1051,16 +1052,8 @@ A CAD Rendering of a model car, 360 degree spin, white background.
       renderModelOptions();
 
       // Set default model
-      const defaultModel = 'google/gemini-2.5-flash';
-      const modelExists = state.models.some(m => m.id === defaultModel);
-      if (modelExists) {
-        selectModel(defaultModel);
-      } else {
-        // Fallback to first Qwen model or first model
-        const qwenModels = state.models.filter(m => getModelProvider(m.id) === 'qwen');
-        const fallbackModel = qwenModels.length > 0 ? qwenModels[0] : state.models[0];
-        if (fallbackModel) selectModel(fallbackModel.id);
-      }
+      const defaultModel = localStorage.getItem(storageKeys.selectedModel) ||'qwen/qwen3-vl-235b-a22b-instruct';
+      selectModel(state.models.some(m => m.id === defaultModel)?defaultModel:'qwen/qwen3-vl-235b-a22b-instruct');
     } catch (error) {
       console.error('Failed to fetch models:', error);
       ui.progressText.textContent = 'Error: Could not load models';
@@ -1147,6 +1140,7 @@ A CAD Rendering of a model car, 360 degree spin, white background.
     const selectedOption = document.querySelector(`.custom-option[data-value="${CSS.escape(model.id)}"]`);
     if (selectedOption) {
       selectedOption.classList.add('selected');
+      localStorage.setItem(storageKeys.selectedModel, model.id);
     }
 
     // Show/hide reasoning toggle based on model support
