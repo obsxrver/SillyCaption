@@ -1068,8 +1068,7 @@ A CAD Rendering of a model car, 360 degree spin, white background.
   function modelSupportsReasoning(modelId) {
     const model = state.models.find(m => m.id === modelId);
     if (!model || !model.supported_parameters) return false;
-    return model.supported_parameters.includes('reasoning') || 
-           model.supported_parameters.includes('include_reasoning');
+    return model.supported_parameters.includes('reasoning');
   }
 
   function renderModelOptions() {
