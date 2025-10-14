@@ -1149,3 +1149,40 @@ textarea:focus-visible {
   border-color: var(--border-light);
 }
 
+.mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mode-switch > label:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.mode-switch .mode-description {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+.mode-switch #modeLabel {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.image-pair-container {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.image-pair-container img {
+  flex: 1;
+  max-width: 50%;
+  border-radius: 8px;
+  object-fit: cover;
+}
+

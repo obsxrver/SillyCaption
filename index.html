@@ -74,6 +74,19 @@
                 <label>🧠 (Reasoning)</label>
             </div>
             <div class="field">
+                <label>Training Mode</label>
+                <div class="mode-switch">
+                    <label class="switch">
+                        <input type="checkbox" id="modeToggle">
+                        <span class="slider"></span>
+                    </label>
+                    <label for="modeToggle">
+                        <span id="modeLabel">Text-to-Image</span>
+                        <span class="mode-description" id="modeDescription">Generate captions describing images</span>
+                    </label>
+                </div>
+            </div>
+            <div class="field">
                 <label for="systemPrompt">System Prompt</label>
                 <textarea id="systemPrompt" rows="5" placeholder="Describe exactly how captions should be produced."></textarea>
             </div>
@@ -90,6 +103,12 @@
             <div class="field">
                 <label for="files">Upload Images/Videos</label>
                 <input type="file" id="files" accept="image/*,video/*" multiple>
+            </div>
+
+            <div class="field" id="outputFilesField" style="display: none;">
+                <label for="outputFiles">Upload Output Images (Image-to-Image Mode)</label>
+                <input type="file" id="outputFiles" accept="image/*" multiple>
+                <div class="hint">For image-to-image mode, upload output images that correspond to your input images. Files should have matching names.</div>
             </div>
 
             <details class="advanced-section">
