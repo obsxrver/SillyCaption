@@ -178,6 +178,7 @@ header .profile-link img {
 @supports (background-clip: text) {
   header h1 {
     background: linear-gradient(135deg, var(--text) 0%, var(--accent-color) 100%);
+    -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
@@ -1202,5 +1203,113 @@ textarea:focus-visible {
   max-width: 50%;
   border-radius: 8px;
   object-fit: cover;
+}
+
+/* VLLM Custom Server Styling */
+#customVllmEndpoint {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+#customVllmEndpoint:invalid {
+  border-color: var(--danger-color);
+  background: rgba(220, 38, 38, 0.05);
+}
+
+#customVllmEndpoint:invalid:focus {
+  border-color: var(--danger-color);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+/* VLLM Connection Status Indicator */
+.vllm-status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.vllm-status-indicator.error {
+  color: var(--danger-color);
+}
+
+.vllm-status-indicator.success {
+  color: var(--ok-color);
+}
+
+.vllm-status-indicator::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.vllm-status-indicator.error::before {
+  background: var(--danger-color);
+  box-shadow: 0 0 4px var(--danger-color);
+  animation: pulse-error 2s infinite;
+}
+
+.vllm-status-indicator.success::before {
+  background: var(--ok-color);
+  box-shadow: 0 0 4px var(--ok-color);
+}
+
+@keyframes pulse-error {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+/* Tooltip for VLLM status */
+.vllm-tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+.vllm-tooltip .vllm-tooltip-text {
+  visibility: hidden;
+  width: 200px;
+  background-color: rgba(26, 26, 26, 0.95);
+  color: var(--text);
+  text-align: center;
+  border-radius: 6px;
+  padding: 8px 12px;
+  position: absolute;
+  z-index: 1000;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -100px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  backdrop-filter: var(--blur-glass);
+  box-shadow: var(--shadow-lg);
+}
+
+.vllm-tooltip .vllm-tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: rgba(26, 26, 26, 0.95) transparent transparent transparent;
+}
+
+.vllm-tooltip:hover .vllm-tooltip-text {
+  visibility: visible;
+  opacity: 1;
 }
 

@@ -3,6 +3,12 @@
 
   const api = {
     endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+    useCustomEndpoint: false,
+    customEndpoint: '',
+    customEndpointBase: '', // Store ip:port separately for model fetching
+    customBearerToken: '', // Bearer token for custom VLLM server
+    customUsername: '', // Username for Basic Auth
+    customPassword: '', // Password for Basic Auth
   };
 
   const state = {
@@ -10,6 +16,8 @@
     running: false,
     models: [],
     isImageToImageMode: false,
+    vllmModels: [],
+    vllmConnectionStatus: 'disconnected', // 'disconnected', 'connecting', 'success', 'error'
   };
 
   const ui = {
@@ -51,6 +59,17 @@
     modeToggle: el('modeToggle'),
     modeLabel: el('modeLabel'),
     modeDescription: el('modeDescription'),
+    useCustomVllm: el('useCustomVllm'),
+    customVllmEndpoint: el('customVllmEndpoint'),
+    customVllmField: el('customVllmField'),
+    customVllmBearerToken: el('customVllmBearerToken'),
+    customVllmBearerTokenField: el('customVllmBearerTokenField'),
+    customVllmUsername: el('customVllmUsername'),
+    customVllmUsernameField: el('customVllmBasicAuthField'),
+    customVllmPassword: el('customVllmPassword'),
+    customVllmPasswordField: el('customVllmPasswordField'),
+    vllmStatusIndicator: el('vllmStatusIndicator'),
+    vllmStatusTooltip: el('vllmStatusTooltip'),
   };
 
   // Persistent storage keys
@@ -61,6 +80,11 @@
     presets: 'sc_presets',
     lastPreset: 'sc_last_preset',
     selectedModel: 'sc_selected_model',
+    useCustomVllm: 'sc_use_custom_vllm',
+    customVllmEndpoint: 'sc_custom_vllm_endpoint',
+    customVllmBearerToken: 'sc_custom_vllm_bearer_token',
+    customVllmUsername: 'sc_custom_vllm_username',
+    customVllmPassword: 'sc_custom_vllm_password',
   };
 
   // Presets helpers
@@ -270,6 +294,141 @@ EXAMPLES:
       try { localStorage.setItem(storageKeys.apiKey, ui.apiKey.value); } catch { }
     });
 
+    // Custom VLLM settings
+    try {
+      const useCustom = localStorage.getItem(storageKeys.useCustomVllm);
+      if (useCustom !== null) {
+        api.useCustomEndpoint = useCustom === 'true';
+        if (ui.useCustomVllm) ui.useCustomVllm.checked = api.useCustomEndpoint;
+      }
+    } catch { }
+    try {
+      const customEndpointBase = localStorage.getItem(storageKeys.customVllmEndpoint);
+      if (customEndpointBase) {
+        // Check if it's the old full URL format or new ip:port format
+        if (customEndpointBase.startsWith('http://') || customEndpointBase.startsWith('https://')) {
+          // Old format - extract hostname:port part
+          try {
+            const url = new URL(customEndpointBase);
+            const hostnamePort = url.hostname + (url.port ? ':' + url.port : '');
+            api.customEndpointBase = hostnamePort;
+            if (ui.customVllmEndpoint) ui.customVllmEndpoint.value = hostnamePort;
+          } catch {
+            api.customEndpointBase = '';
+            if (ui.customVllmEndpoint) ui.customVllmEndpoint.value = '';
+          }
+        } else {
+          // New format - IP:port or domain format
+          api.customEndpointBase = customEndpointBase;
+          if (ui.customVllmEndpoint) ui.customVllmEndpoint.value = customEndpointBase;
+        }
+      }
+    } catch { }
+
+    // Custom VLLM bearer token persistence
+    try {
+      const customBearerToken = localStorage.getItem(storageKeys.customVllmBearerToken);
+      if (customBearerToken) {
+        api.customBearerToken = customBearerToken;
+        if (ui.customVllmBearerToken) ui.customVllmBearerToken.value = customBearerToken;
+      }
+    } catch { }
+
+    // Custom VLLM username persistence
+    try {
+      const customUsername = localStorage.getItem(storageKeys.customVllmUsername);
+      if (customUsername) {
+        api.customUsername = customUsername;
+        if (ui.customVllmUsername) ui.customVllmUsername.value = customUsername;
+      }
+    } catch { }
+
+    // Custom VLLM password persistence
+    try {
+      const customPassword = localStorage.getItem(storageKeys.customVllmPassword);
+      if (customPassword) {
+        api.customPassword = customPassword;
+        if (ui.customVllmPassword) ui.customVllmPassword.value = customPassword;
+      }
+    } catch { }
+
+    // Show/hide custom VLLM field based on toggle state
+    updateCustomVllmUI();
+
+    if (ui.useCustomVllm) {
+      ui.useCustomVllm.addEventListener('change', () => {
+        api.useCustomEndpoint = ui.useCustomVllm.checked;
+        updateCustomVllmUI();
+        try { localStorage.setItem(storageKeys.useCustomVllm, api.useCustomEndpoint); } catch { }
+
+        // Fetch VLLM models when enabling custom VLLM
+        if (api.useCustomEndpoint && api.customEndpointBase) {
+          fetchVllmModels();
+        } else if (!api.useCustomEndpoint) {
+          // When disabling VLLM, revert to OpenRouter models
+          state.vllmModels = [];
+          state.vllmConnectionStatus = 'disconnected';
+          updateVllmStatusIndicator();
+          updateModelDropdownWithVllm();
+        }
+      });
+    }
+
+    // Check if VLLM should be initialized on load
+    if (api.useCustomEndpoint && api.customEndpointBase) {
+      fetchVllmModels();
+    }
+
+    if (ui.customVllmEndpoint) {
+      ui.customVllmEndpoint.addEventListener('input', () => {
+        const ipPort = ui.customVllmEndpoint.value.trim();
+        // Don't update the stored endpoint until it's valid and we're using custom VLLM
+        if (api.useCustomEndpoint && ipPort) {
+          // Accept IP:port, domain, or full URL formats
+          const endpointPattern = /^((https?:\/\/)?[a-zA-Z0-9.-]+(\:[0-9]+)?|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+)$/;
+          if (endpointPattern.test(ipPort)) {
+            api.customEndpointBase = ipPort;
+            try { localStorage.setItem(storageKeys.customVllmEndpoint, ipPort); } catch { }
+            // Fetch models when endpoint changes
+            fetchVllmModels();
+          }
+        }
+      });
+    }
+
+    if (ui.customVllmBearerToken) {
+      ui.customVllmBearerToken.addEventListener('input', () => {
+        const token = ui.customVllmBearerToken.value.trim();
+        // Update the stored bearer token when it changes
+        if (api.useCustomEndpoint) {
+          api.customBearerToken = token;
+          try { localStorage.setItem(storageKeys.customVllmBearerToken, token); } catch { }
+        }
+      });
+    }
+
+    if (ui.customVllmUsername) {
+      ui.customVllmUsername.addEventListener('input', () => {
+        const username = ui.customVllmUsername.value.trim();
+        // Update the stored username when it changes
+        if (api.useCustomEndpoint) {
+          api.customUsername = username;
+          try { localStorage.setItem(storageKeys.customVllmUsername, username); } catch { }
+        }
+      });
+    }
+
+    if (ui.customVllmPassword) {
+      ui.customVllmPassword.addEventListener('input', () => {
+        const password = ui.customVllmPassword.value.trim();
+        // Update the stored password when it changes
+        if (api.useCustomEndpoint) {
+          api.customPassword = password;
+          try { localStorage.setItem(storageKeys.customVllmPassword, password); } catch { }
+        }
+      });
+    }
+
     // Presets
     let presets = loadPresets();
     if (!presets || presets.length === 0) {
@@ -430,6 +589,26 @@ EXAMPLES:
     return (ui.apiKey.value || '').trim();
   }
 
+  function getApiEndpoint() {
+    if (api.useCustomEndpoint && api.customEndpoint) {
+      return api.customEndpoint;
+    }
+    return api.endpoint;
+  }
+
+  function getVllmModelsEndpoint() {
+    if (api.useCustomEndpoint && api.customEndpointBase) {
+      if (api.customEndpointBase.startsWith('http://') || api.customEndpointBase.startsWith('https://')) {
+        // Full URL provided, use as-is and append models path
+        return `${api.customEndpointBase}/v1/models`;
+      } else {
+        // IP:port or domain format, use http protocol
+        return `http://${api.customEndpointBase}/v1/models`;
+      }
+    }
+    return null;
+  }
+
   function signOut() {
     try { localStorage.removeItem(storageKeys.oauthKey); } catch { }
     updateAuthUI();
@@ -474,8 +653,30 @@ EXAMPLES:
   ui.btnCaption.addEventListener('click', async () => {
     const apiKey = getAuthKey();
     if (!apiKey) {
-      alert('Please enter your OpenRouter API key.');
+      alert('Please enter your API key.');
       return;
+    }
+
+    // Validate custom VLLM endpoint if enabled
+    if (api.useCustomEndpoint) {
+      if (!api.customEndpointBase) {
+        alert('Please enter a VLLM server IP:port.');
+        return;
+      }
+      // Validate endpoint format (IP:port, domain, or full URL)
+      const endpointPattern = /^((https?:\/\/)?[a-zA-Z0-9.-]+(\:[0-9]+)?|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+)$/;
+      if (!endpointPattern.test(api.customEndpointBase)) {
+        alert('Please enter a valid endpoint format (e.g., 192.168.1.100:8000, example.com, or https://example.com).');
+        return;
+      }
+      // Construct full URL for API calls
+      if (api.customEndpointBase.startsWith('http://') || api.customEndpointBase.startsWith('https://')) {
+        // Full URL provided, use as-is and append API path
+        api.customEndpoint = `${api.customEndpointBase}/v1/chat/completions`;
+      } else {
+        // IP:port or domain format, use http protocol
+        api.customEndpoint = `http://${api.customEndpointBase}/v1/chat/completions`;
+      }
     }
     const systemPrompt = ui.systemPrompt.value.trim();
     if (!systemPrompt) {
@@ -596,6 +797,156 @@ EXAMPLES:
     } else {
       ui.modeLabel.textContent = 'Text-to-Image';
       ui.modeDescription.textContent = 'Generate captions describing images';
+    }
+  }
+
+  function updateCustomVllmUI() {
+    if (ui.customVllmField) {
+      ui.customVllmField.style.display = api.useCustomEndpoint ? 'block' : 'none';
+    }
+    if (ui.customVllmBearerTokenField) {
+      ui.customVllmBearerTokenField.style.display = api.useCustomEndpoint ? 'block' : 'none';
+    }
+    if (ui.customVllmUsernameField) {
+      ui.customVllmUsernameField.style.display = api.useCustomEndpoint ? 'block' : 'none';
+    }
+    if (ui.customVllmPasswordField) {
+      ui.customVllmPasswordField.style.display = api.useCustomEndpoint ? 'block' : 'none';
+    }
+    updateVllmStatusIndicator();
+  }
+
+  function updateVllmStatusIndicator() {
+    if (!ui.vllmStatusIndicator || !ui.vllmStatusTooltip) return;
+
+    // Remove all status classes
+    ui.vllmStatusIndicator.classList.remove('success', 'error', 'hidden');
+
+    switch (state.vllmConnectionStatus) {
+      case 'success':
+        ui.vllmStatusIndicator.classList.add('success');
+        ui.vllmStatusTooltip.textContent = 'VLLM server connected successfully';
+        break;
+      case 'error':
+        ui.vllmStatusIndicator.classList.add('error');
+        ui.vllmStatusTooltip.textContent = 'Failed to connect to VLLM server, defaulting to OpenRouter';
+        break;
+      case 'connecting':
+        ui.vllmStatusIndicator.classList.add('hidden');
+        ui.vllmStatusTooltip.textContent = 'Connecting to VLLM server...';
+        break;
+      default:
+        ui.vllmStatusIndicator.classList.add('hidden');
+        ui.vllmStatusTooltip.textContent = 'VLLM server disconnected';
+        break;
+    }
+  }
+
+  async function fetchVllmModels() {
+    if (!api.useCustomEndpoint || !api.customEndpointBase) return;
+
+    const modelsUrl = getVllmModelsEndpoint();
+    if (!modelsUrl) return;
+
+    state.vllmConnectionStatus = 'connecting';
+    updateVllmStatusIndicator();
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+
+      // Add authentication headers
+      if (api.useCustomEndpoint) {
+        if (api.customUsername && api.customPassword) {
+          // Use Basic Auth if username and password are provided
+          const credentials = btoa(`${api.customUsername}:${api.customPassword}`);
+          headers['Authorization'] = `Basic ${credentials}`;
+        } else if (api.customBearerToken) {
+          // Fall back to Bearer token if no Basic Auth credentials
+          headers['Authorization'] = `Bearer ${api.customBearerToken}`;
+        }
+      }
+
+      const response = await fetch(modelsUrl, {
+        method: 'GET',
+        headers,
+        signal: AbortSignal.timeout(5000), // 5 second timeout
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const models = data.data || [];
+
+      // Filter to only include models that support image inputs (similar to OpenRouter filtering)
+      state.vllmModels = models
+        .filter(model => {
+          return model.id && (
+            model.object === 'model' ||
+            (model.architecture && model.architecture.input_modalities && model.architecture.input_modalities.includes('image'))
+          );
+        })
+        .map((model, index) => ({
+          ...model,
+          originalIndex: index,
+          name: model.name || model.id,
+          id: model.id,
+          // Add supported_parameters for compatibility with reasoning check
+          supported_parameters: model.supported_parameters || [],
+          // Add architecture info for compatibility
+          architecture: model.architecture || { input_modalities: ['image'] }
+        }));
+
+      if (state.vllmModels.length > 0) {
+        state.vllmConnectionStatus = 'success';
+        updateVllmStatusIndicator();
+        // Update model dropdown to show VLLM models
+        updateModelDropdownWithVllm();
+
+        // Set default VLLM model if none selected or if current selection is not from VLLM
+        const currentModel = ui.modelId.value;
+        const isCurrentModelVllm = state.vllmModels.some(m => m.id === currentModel);
+        if (!currentModel || !isCurrentModelVllm) {
+          const defaultModel = state.vllmModels[0].id;
+          selectModel(defaultModel);
+        }
+      } else {
+        throw new Error('No suitable models found on VLLM server');
+      }
+    } catch (error) {
+      console.error('Failed to fetch VLLM models:', error);
+      state.vllmConnectionStatus = 'error';
+      state.vllmModels = [];
+      updateVllmStatusIndicator();
+
+      // Revert to OpenRouter models if not already using them
+      if (state.models.length === 0 || !state.models[0].id.includes('/')) {
+        fetchModels();
+      } else {
+        updateModelDropdownWithVllm();
+      }
+    }
+  }
+
+  function updateModelDropdownWithVllm() {
+    // If we have VLLM models and custom endpoint is enabled, use them
+    if (api.useCustomEndpoint && state.vllmModels.length > 0) {
+      // Use VLLM models for the dropdown
+      state.models = state.vllmModels;
+      renderModelOptions();
+    } else if (state.models.length > 0 && state.models[0].id.includes('/')) {
+      // We have OpenRouter models loaded, use them
+      renderModelOptions();
+    } else {
+      // No models available, try to fetch OpenRouter models
+      if (!api.useCustomEndpoint) {
+        fetchModels();
+      } else {
+        renderModelOptions();
+      }
     }
   }
 
@@ -1259,19 +1610,34 @@ Instructions: ${systemPrompt}`;
         { role: 'user', content: userContent },
       ],
     };
-    // Add reasoning parameter if model supports it and toggle is enabled
-    if (modelSupportsReasoning(model) && ui.reasoningToggle && ui.reasoningToggle.checked) {
+    // Add reasoning parameter if model supports it and toggle is enabled (but not for VLLM)
+    if (!api.useCustomEndpoint && modelSupportsReasoning(model) && ui.reasoningToggle && ui.reasoningToggle.checked) {
       body.reasoning = { enabled: true };
     }
     // console.log(body);
-    const res = await fetch(api.endpoint, {
+    const headers = {
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://obsxrver.pro/SillyCaption',
+      'X-Title': 'SillyCaption',
+    };
+
+    // Use authentication for custom VLLM server, otherwise use API key for OpenRouter
+    if (api.useCustomEndpoint) {
+      if (api.customUsername && api.customPassword) {
+        // Use Basic Auth if username and password are provided
+        const credentials = btoa(`${api.customUsername}:${api.customPassword}`);
+        headers['Authorization'] = `Basic ${credentials}`;
+      } else if (api.customBearerToken) {
+        // Fall back to Bearer token if no Basic Auth credentials
+        headers['Authorization'] = `Bearer ${api.customBearerToken}`;
+      }
+    } else {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
+    const res = await fetch(getApiEndpoint(), {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://obsxrver.pro/SillyCaption',
-        'X-Title': 'SillyCaption',
-      },
+      headers,
       body: JSON.stringify(body),
       signal,
     });
@@ -1281,13 +1647,36 @@ Instructions: ${systemPrompt}`;
       throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
     }
     const data = await res.json();
-    const msg = data?.choices?.[0]?.message?.content;
+    let msg = data?.choices?.[0]?.message?.content;
     if (!msg) throw new Error('No caption returned');
+
+    // Clean up reasoning content for reasoning models
+    if (typeof msg === 'string' && msg.includes('</think>')) {
+      // Remove everything before </think> and clean up whitespace
+      const thinkEndIndex = msg.lastIndexOf('</think>');
+      if (thinkEndIndex !== -1) {
+        msg = msg.substring(thinkEndIndex + '</think>'.length).trim();
+        // Remove any leading newlines or whitespace
+        msg = msg.replace(/^\s+/, '');
+      }
+    }
+
     if (Array.isArray(msg)) {
       // Some models return array of content parts
       const textPart = msg.find((p) => p.type === 'text');
-      return textPart?.text || JSON.stringify(msg);
+      const text = textPart?.text || JSON.stringify(msg);
+
+      // Clean up reasoning content for array responses too
+      if (text.includes('</think>')) {
+        const thinkEndIndex = text.lastIndexOf('</think>');
+        if (thinkEndIndex !== -1) {
+          return text.substring(thinkEndIndex + '</think>'.length).trim().replace(/^\s+/, '');
+        }
+      }
+
+      return text;
     }
+
     return msg;
   }
 

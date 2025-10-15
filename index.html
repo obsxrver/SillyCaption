@@ -9,8 +9,7 @@
     <meta http-equiv="Expires" content="0">
     <link rel="icon" href="static/favicon2.ico?v=1.0.1">
     <link rel="stylesheet" href="static/styles.css?v=1.0.1">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src https://openrouter.ai">
-</head>
+   </head>
 <body>
     <header>
         <div class="header-left">
@@ -141,6 +140,33 @@
                             <input type="number" id="framesPerVideo" min="1" max="15" value="8">
                         </div>
                     </div>
+                    <div class="field">
+                        <label class="switch">
+                            <input type="checkbox" id="useCustomVllm">
+                            <span class="slider"></span>
+                        </label>
+                        <label>Use Custom VLLM Server <span class="vllm-tooltip"><span id="vllmStatusIndicator" class="vllm-status-indicator hidden"></span><span class="vllm-tooltip-text" id="vllmStatusTooltip">Connecting to VLLM server...</span></span></label>
+                    </div>
+                    <div class="field" id="customVllmField" style="display: none;">
+                        <label for="customVllmEndpoint">VLLM Server</label>
+                        <input type="text" id="customVllmEndpoint" placeholder="192.168.1.100:8000 or example.com" autocomplete="off">
+                        <div class="hint">Enter your VLLM server (IP:port, domain, or full URL, e.g., 192.168.1.100:8000, example.com, or https://example.com)</div>
+                    </div>
+                    <div class="field" id="customVllmBearerTokenField" style="display: none;">
+                        <label for="customVllmBearerToken">Bearer Token (Optional)</label>
+                        <input type="password" id="customVllmBearerToken" placeholder="Bearer token for server authentication" autocomplete="off">
+                        <div class="hint">Enter bearer token if your VLLM server requires authentication</div>
+                    </div>
+                    <div class="field" id="customVllmBasicAuthField" style="display: none;">
+                        <label for="customVllmUsername">Username (Optional)</label>
+                        <input type="text" id="customVllmUsername" placeholder="Username for Basic Auth" autocomplete="off">
+                        <div class="hint">Enter username for Basic Authentication if required</div>
+                    </div>
+                    <div class="field" id="customVllmPasswordField" style="display: none;">
+                        <label for="customVllmPassword">Password (Optional)</label>
+                        <input type="password" id="customVllmPassword" placeholder="Password for Basic Auth" autocomplete="off">
+                        <div class="hint">Enter password for Basic Authentication if required</div>
+                    </div>
                 </div>
             </details>
 
@@ -169,8 +195,8 @@
         <a href="https://github.com/obsxrver/wan22-lora-training/" target="_blank" rel="noreferrer noopener">Perfect WAN 2.2 LoRA Training Pipeline</a>
     </footer>
 
-    <script src="src/3rd-party/jszip.min.js?v=1.0.1"></script>
-    <script src="src/script.js?v=1.0.1"></script>
+    <script src="src/3rd-party/jszip.min.js?v=1.0.2"></script>
+    <script src="src/script.js?v=1.0.2"></script>
 </body>
 </html>
 
