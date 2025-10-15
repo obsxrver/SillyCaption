@@ -15,9 +15,13 @@
     abortController: null,
     running: false,
     models: [],
+    openRouterModels: [], // Store OpenRouter models separately
     isImageToImageMode: false,
     vllmModels: [],
     vllmConnectionStatus: 'disconnected', // 'disconnected', 'connecting', 'success', 'error'
+    // Sequence guards to avoid race conditions between concurrent fetches
+    openRouterFetchSeq: 0,
+    vllmFetchSeq: 0,
   };
 
   const ui = {
@@ -80,6 +84,8 @@
     presets: 'sc_presets',
     lastPreset: 'sc_last_preset',
     selectedModel: 'sc_selected_model',
+    selectedModelOpenRouter: 'sc_selected_model_openrouter',
+    selectedModelLocal: 'sc_selected_model_local',
     useCustomVllm: 'sc_use_custom_vllm',
     customVllmEndpoint: 'sc_custom_vllm_endpoint',
     customVllmBearerToken: 'sc_custom_vllm_bearer_token',
@@ -365,11 +371,12 @@ EXAMPLES:
         if (api.useCustomEndpoint && api.customEndpointBase) {
           fetchVllmModels();
         } else if (!api.useCustomEndpoint) {
-          // When disabling VLLM, revert to OpenRouter models
+          // When disabling VLLM, remove local models from the list
           state.vllmModels = [];
           state.vllmConnectionStatus = 'disconnected';
           updateVllmStatusIndicator();
-          updateModelDropdownWithVllm();
+          removeLocalModelsFromList();
+          ensurePreferredModelSelected();
         }
       });
     }
@@ -845,6 +852,7 @@ EXAMPLES:
   async function fetchVllmModels() {
     if (!api.useCustomEndpoint || !api.customEndpointBase) return;
 
+    const seq = ++state.vllmFetchSeq;
     const modelsUrl = getVllmModelsEndpoint();
     if (!modelsUrl) return;
 
@@ -879,15 +887,16 @@ EXAMPLES:
       }
 
       const data = await response.json();
+      if (seq !== state.vllmFetchSeq) {
+        return; // stale result
+      }
       const models = data.data || [];
 
       // Filter to only include models that support image inputs (similar to OpenRouter filtering)
       state.vllmModels = models
         .filter(model => {
-          return model.id && (
-            model.object === 'model' ||
-            (model.architecture && model.architecture.input_modalities && model.architecture.input_modalities.includes('image'))
-          );
+          return model.id && 
+            model.object === 'model';
         })
         .map((model, index) => ({
           ...model,
@@ -903,16 +912,9 @@ EXAMPLES:
       if (state.vllmModels.length > 0) {
         state.vllmConnectionStatus = 'success';
         updateVllmStatusIndicator();
-        // Update model dropdown to show VLLM models
-        updateModelDropdownWithVllm();
-
-        // Set default VLLM model if none selected or if current selection is not from VLLM
-        const currentModel = ui.modelId.value;
-        const isCurrentModelVllm = state.vllmModels.some(m => m.id === currentModel);
-        if (!currentModel || !isCurrentModelVllm) {
-          const defaultModel = state.vllmModels[0].id;
-          selectModel(defaultModel);
-        }
+        // Merge local models into list and ensure selection
+        addLocalModelsToList();
+        ensurePreferredModelSelected();
       } else {
         throw new Error('No suitable models found on VLLM server');
       }
@@ -921,32 +923,99 @@ EXAMPLES:
       state.vllmConnectionStatus = 'error';
       state.vllmModels = [];
       updateVllmStatusIndicator();
+      // Remove any local models from the list
+      removeLocalModelsFromList();
+      ensurePreferredModelSelected();
+    }
+  }
 
-      // Revert to OpenRouter models if not already using them
-      if (state.models.length === 0 || !state.models[0].id.includes('/')) {
-        fetchModels();
-      } else {
-        updateModelDropdownWithVllm();
+  function addLocalModelsToList() {
+    // Remove any existing local models first
+    removeLocalModelsFromList();
+    
+    // Add local models with "(local)" suffix
+    const localModelsWithSuffix = state.vllmModels.map((model, index) => ({
+      ...model,
+      id: model.id, // Keep original ID for API calls
+      name: `${model.name || model.id} (local)`,
+      displayName: `${model.name || model.id} (local)`,
+      isLocal: true,
+      originalIndex: state.openRouterModels.length + index // Position after OpenRouter models
+    }));
+    
+    // Merge with OpenRouter models
+    state.models = [...state.openRouterModels, ...localModelsWithSuffix];
+    renderModelOptions();
+    
+    // Try to restore the previously selected model
+    const savedModel = localStorage.getItem(storageKeys.selectedModelLocal) || localStorage.getItem(storageKeys.selectedModel);
+    if (savedModel && state.models.some(m => m.id === savedModel)) {
+      selectModel(savedModel);
+    }
+  }
+
+  function removeLocalModelsFromList() {
+    // Remove all local models from the list
+    state.models = state.models.filter(m => !m.isLocal);
+    renderModelOptions();
+    
+    // If current selected model is local, switch to a non-local model
+    const currentModel = ui.modelId.value;
+    const currentModelObj = state.models.find(m => m.id === currentModel);
+    if (!currentModelObj || currentModelObj.isLocal) {
+      // Switch to saved OpenRouter model or first OpenRouter
+      const savedOpenRouter = localStorage.getItem(storageKeys.selectedModelOpenRouter) || localStorage.getItem(storageKeys.selectedModel);
+      if (savedOpenRouter && state.models.some(m => m.id === savedOpenRouter && !m.isLocal)) {
+        selectModel(savedOpenRouter);
+      } else if (state.openRouterModels.length > 0) {
+        selectModel(state.openRouterModels[0].id);
+      } else if (state.models.length > 0) {
+        selectModel(state.models[0].id);
       }
     }
   }
 
-  function updateModelDropdownWithVllm() {
-    // If we have VLLM models and custom endpoint is enabled, use them
-    if (api.useCustomEndpoint && state.vllmModels.length > 0) {
-      // Use VLLM models for the dropdown
-      state.models = state.vllmModels;
-      renderModelOptions();
-    } else if (state.models.length > 0 && state.models[0].id.includes('/')) {
-      // We have OpenRouter models loaded, use them
-      renderModelOptions();
-    } else {
-      // No models available, try to fetch OpenRouter models
-      if (!api.useCustomEndpoint) {
-        fetchModels();
-      } else {
-        renderModelOptions();
-      }
+  function recomputeCombinedModels() {
+    // Combine OpenRouter and currently fetched local models
+    const localModelsWithSuffix = state.vllmModels.map((model, index) => ({
+      ...model,
+      id: model.id,
+      name: `${model.name || model.id} (local)`,
+      displayName: `${model.name || model.id} (local)`,
+      isLocal: true,
+      originalIndex: state.openRouterModels.length + index
+    }));
+    state.models = [...state.openRouterModels, ...(api.useCustomEndpoint ? localModelsWithSuffix : [])];
+    renderModelOptions();
+  }
+
+  function ensurePreferredModelSelected() {
+    // 1) If user has a selected model and it exists, keep it
+    const current = ui.modelId.value;
+    if (current && state.models.some(m => m.id === current)) {
+      return;
+    }
+    // 2) Prefer provider-specific saved selection
+    const savedLocal = localStorage.getItem(storageKeys.selectedModelLocal);
+    if (api.useCustomEndpoint && savedLocal && state.models.some(m => m.id === savedLocal)) {
+      selectModel(savedLocal);
+      return;
+    }
+    const savedOR = localStorage.getItem(storageKeys.selectedModelOpenRouter);
+    if ((!api.useCustomEndpoint || !savedLocal) && savedOR && state.models.some(m => m.id === savedOR)) {
+      selectModel(savedOR);
+      return;
+    }
+    // 3) Otherwise pick first available from current provider preference
+    if (api.useCustomEndpoint) {
+      const firstLocal = state.models.find(m => m.isLocal);
+      if (firstLocal) { selectModel(firstLocal.id); return; }
+    }
+    // 4) Fallback to first OpenRouter or first model
+    if (state.openRouterModels.length > 0) {
+      selectModel(state.openRouterModels[0].id);
+    } else if (state.models.length > 0) {
+      selectModel(state.models[0].id);
     }
   }
 
@@ -963,9 +1032,12 @@ EXAMPLES:
     ui.results.innerHTML = '';
     updateSaveZipButton();
 
-    // Reload presets to show all options
+    // Reload presets while preserving the current selection
     const presets = loadPresets() || defaultPresets();
-    renderPresetOptions(presets, '');
+    const currentSelection = ui.presetSelect?.value || '';
+    const savedPreset = localStorage.getItem(storageKeys.lastPreset) || '';
+    const presetToSelect = currentSelection || savedPreset;
+    renderPresetOptions(presets, presetToSelect);
   }
 
   async function prepareItems(inputFiles, outputFiles, framesPerVideo) {
@@ -1611,8 +1683,11 @@ Instructions: ${systemPrompt}`;
       ],
     };
     // Add reasoning parameter if model supports it and toggle is enabled (but not for VLLM)
-    if (!api.useCustomEndpoint && modelSupportsReasoning(model) && ui.reasoningToggle && ui.reasoningToggle.checked) {
-      body.reasoning = { enabled: true };
+    if (!api.useCustomEndpoint){
+        body.provider = {ignore: ["alibaba"],}
+      if(modelSupportsReasoning(model) && ui.reasoningToggle && ui.reasoningToggle.checked) {
+        body.reasoning = { enabled: true };
+      }
     }
     // console.log(body);
     const headers = {
@@ -1683,10 +1758,14 @@ Instructions: ${systemPrompt}`;
   // Model dropdown functionality
   async function fetchModels() {
     try {
+      const seq = ++state.openRouterFetchSeq;
       const response = await fetch('https://openrouter.ai/api/v1/models');
       const data = await response.json();
+      if (seq !== state.openRouterFetchSeq) {
+        return; // stale result
+      }
       // Filter to only include models that support image inputs and store original order
-      state.models = data.data
+      state.openRouterModels = data.data
         .filter(model => {
           return model.architecture &&
             model.architecture.input_modalities &&
@@ -1694,21 +1773,24 @@ Instructions: ${systemPrompt}`;
         })
         .map((model, index) => ({
           ...model,
-          originalIndex: index // Store original chronological order
+          originalIndex: index, // Store original chronological order
+          isLocal: false
         }));
-      renderModelOptions();
-
-      // Set default model
-      const defaultModel = localStorage.getItem(storageKeys.selectedModel) ||'qwen/qwen3-vl-235b-a22b-instruct';
-      selectModel(state.models.some(m => m.id === defaultModel)?defaultModel:'qwen/qwen3-vl-235b-a22b-instruct');
+      
+      // Initialize state.models with OpenRouter models
+      // Local models will be added later if VLLM is enabled
+      recomputeCombinedModels();
+      ensurePreferredModelSelected();
     } catch (error) {
       console.error('Failed to fetch models:', error);
       ui.progressText.textContent = 'Error: Could not load models';
     }
   }
 
-  function getModelProvider(modelId) {
+  function getModelProvider(modelId, model = null) {
     if (!modelId) return 'unknown';
+    // Check if this is a local model
+    if (model && model.isLocal) return 'local';
     return modelId.split('/')[0];
   }
 
@@ -1726,7 +1808,7 @@ Instructions: ${systemPrompt}`;
     const sortOrder = ui.sortOrder?.value || 'chronological';
 
     let filteredModels = state.models.filter(model => {
-      const modelProvider = getModelProvider(model.id);
+      const modelProvider = getModelProvider(model.id, model);
       const matchesProvider = provider === 'all' || modelProvider === provider;
       const matchesSearch = model.id.toLowerCase().includes(searchTerm) ||
         (model.name && model.name.toLowerCase().includes(searchTerm));
@@ -1758,7 +1840,7 @@ Instructions: ${systemPrompt}`;
 
       option.innerHTML = `
           <div class="model-name">${model.name || model.id}</div>
-          <div class="model-provider">${getModelProvider(model.id)}</div>
+          <div class="model-provider">${getModelProvider(model.id, model)}</div>
         `;
 
       option.addEventListener('click', () => {
@@ -1787,11 +1869,16 @@ Instructions: ${systemPrompt}`;
     if (selectedOption) {
       selectedOption.classList.add('selected');
       localStorage.setItem(storageKeys.selectedModel, model.id);
+      if (model.isLocal) {
+        localStorage.setItem(storageKeys.selectedModelLocal, model.id);
+      } else {
+        localStorage.setItem(storageKeys.selectedModelOpenRouter, model.id);
+      }
     }
-
+    let creator = modelId.split('/')[0];
     // Show/hide reasoning toggle based on model support
     if (ui.reasoningToggleField) {
-      if (modelSupportsReasoning(modelId)) {
+      if (modelSupportsReasoning(modelId) && (creator ==='google' || creator === 'anthropic')) {
         ui.reasoningToggleField.style.display = '';
       } else {
         ui.reasoningToggleField.style.display = 'none';
@@ -1838,9 +1925,5 @@ Instructions: ${systemPrompt}`;
   
   // Initialize mode UI
   updateModeUI();
-  
-  // Initialize presets with unified list
-  const presets = loadPresets() || defaultPresets();
-  renderPresetOptions(presets, '');
 })();
 
