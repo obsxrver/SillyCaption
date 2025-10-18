@@ -1006,12 +1006,18 @@ EXAMPLES:
       selectModel(savedOR);
       return;
     }
-    // 3) Otherwise pick first available from current provider preference
+    // 3) Default to qwen/qwen3-vl-30b-a3b-thinking if available and no previous selection
+    const defaultModel = 'qwen/qwen3-vl-30b-a3b-thinking';
+    if (state.models.some(m => m.id === defaultModel)) {
+      selectModel(defaultModel);
+      return;
+    }
+    // 4) Otherwise pick first available from current provider preference
     if (api.useCustomEndpoint) {
       const firstLocal = state.models.find(m => m.isLocal);
       if (firstLocal) { selectModel(firstLocal.id); return; }
     }
-    // 4) Fallback to first OpenRouter or first model
+    // 5) Fallback to first OpenRouter or first model
     if (state.openRouterModels.length > 0) {
       selectModel(state.openRouterModels[0].id);
     } else if (state.models.length > 0) {
@@ -1684,7 +1690,7 @@ Instructions: ${systemPrompt}`;
     };
     // Add reasoning parameter if model supports it and toggle is enabled (but not for VLLM)
     if (!api.useCustomEndpoint){
-        body.provider = {ignore: ["alibaba"],}
+        body.provider = {ignore: ["alibaba"],sort:"throughput"}
       if(modelSupportsReasoning(model) && ui.reasoningToggle && ui.reasoningToggle.checked) {
         body.reasoning = { enabled: true };
       }
