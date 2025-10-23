@@ -1327,12 +1327,7 @@ EXAMPLES:
     const btnReroll = document.createElement('button');
     btnReroll.className = 'btnReroll icon-btn';
     btnReroll.innerHTML = `
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M21 6v6h-6"/>
-        <path d="M21 12a9 9 0 1 1-3-6.708"/>
-        <path d="M3 18v-6h6"/>
-        <path d="M3 12a9 9 0 0 0 3 6.708"/>
-      </svg>`;
+      <svg viewBox="-0.45 0 60.369 60.369" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g id="Group_63" data-name="Group 63" transform="translate(-446.571 -211.615)"> <path id="Path_54" data-name="Path 54" d="M504.547,265.443h-9.019a30.964,30.964,0,0,0-29.042-52.733,1.5,1.5,0,1,0,.792,2.894,27.955,27.955,0,0,1,25.512,48.253l0-10.169h-.011a1.493,1.493,0,0,0-2.985,0h0v13.255a1.5,1.5,0,0,0,1.5,1.5h13.256a1.5,1.5,0,1,0,0-3Z" fill="#ffffff"></path> <path id="Path_55" data-name="Path 55" d="M485.389,267.995a27.956,27.956,0,0,1-25.561-48.213l0,10.2h.015a1.491,1.491,0,0,0,2.978,0h.007V216.791a1.484,1.484,0,0,0-1.189-1.532l-.018-.005a1.533,1.533,0,0,0-.223-.022c-.024,0-.046-.007-.07-.007H448.071a1.5,1.5,0,0,0,0,3h8.995a30.963,30.963,0,0,0,29.115,52.664,1.5,1.5,0,0,0-.792-2.894Z" fill="#ffffff"></path> </g> </g></svg>`;
     btnReroll.setAttribute('aria-label', 'Re-roll caption');
     btnReroll.title = 'Re-roll caption';
     btnReroll.addEventListener('click', () => rerollCaption(card, item));
@@ -1592,11 +1587,16 @@ EXAMPLES:
         lastErr = err;
         
         // Check if this is a retryable error
-        const isRetryableError = 
+        const isRetryableError =
           /no caption returned|invalid caption returned/i.test(msg) ||
-          /HTTP (429|5\d{2})/i.test(msg); // 429 (rate limit) or 5xx (server errors)
+          /HTTP (429|5\d{2})/i.test(msg) || // 429 (rate limit) or 5xx (server errors)
+          /Failed to parse.*JSON response/i.test(msg); // JSON parsing errors
         
         if (isRetryableError && attempt < retryLimit) {
+          // Add a small delay for JSON parsing errors to handle potential transient issues
+          if (/Failed to parse.*JSON response/i.test(msg)) {
+            await new Promise(resolve => setTimeout(resolve, 1000 + (attempt * 500))); // 1s + 0.5s per attempt
+          }
           // Continue to next retry attempt
           continue;
         }
@@ -1727,7 +1727,24 @@ Instructions: ${systemPrompt}`;
       const text = await res.text().catch(() => '');
       throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
     }
-    const data = await res.json();
+
+    // Handle responses with leading whitespace/newlines before JSON
+    let responseText;
+    try {
+      responseText = await res.text();
+      // Trim leading/trailing whitespace including newlines
+      responseText = responseText.trim();
+    } catch (error) {
+      throw new Error(`Failed to read response: ${error.message}`);
+    }
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (error) {
+      throw new Error(`Failed to parse JSON response: ${error.message}. Response preview: ${responseText.substring(0, 200)}...`);
+    }
+
     let msg = data?.choices?.[0]?.message?.content;
     if (!msg) throw new Error('No caption returned');
 
