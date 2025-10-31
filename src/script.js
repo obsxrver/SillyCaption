@@ -22,6 +22,8 @@
     // Sequence guards to avoid race conditions between concurrent fetches
     openRouterFetchSeq: 0,
     vllmFetchSeq: 0,
+    currentItems: [],
+    refreshSeq: 0,
   };
 
   const ui = {
@@ -44,8 +46,10 @@
     retryLimit: el('retryLimit'),
     downscaleMp: el('downscaleMp'),
     btnCaption: el('btnCaption'),
+    btnCaptionUncaptioned: el('btnCaptionUncaptioned'),
     btnCancel: el('btnCancel'),
     btnClear: el('btnClear'),
+    btnClearAllCaptions: el('btnClearAllCaptions'),
     btnSaveZip: el('btnSaveZip'),
     progressText: el('progressText'),
     progressBar: el('progressBar'),
@@ -503,10 +507,12 @@ EXAMPLES:
   function setRunning(running) {
     state.running = running;
     ui.btnCaption.disabled = running;
+    if (ui.btnCaptionUncaptioned) ui.btnCaptionUncaptioned.disabled = running;
     ui.btnCancel.disabled = !running;
     ui.files.disabled = running;
     if (ui.outputFiles) ui.outputFiles.disabled = running;
     ui.modelId.disabled = running;
+    if (ui.btnClearAllCaptions) ui.btnClearAllCaptions.disabled = running;
   }
 
   ui.btnClear.addEventListener('click', () => {
@@ -521,7 +527,28 @@ EXAMPLES:
       ui.outputFiles.value = '';
       ui.outputFiles.classList.remove('processing');
     }
+    state.currentItems = [];
+    state.refreshSeq = 0;
     resultsStore.clear();
+    updateSaveZipButton();
+  });
+
+  ui.btnClearAllCaptions?.addEventListener('click', () => {
+    if (state.running) return;
+    const seen = new Set();
+    if (state.currentItems && state.currentItems.length > 0) {
+      for (const item of state.currentItems) {
+        if (item.card) {
+          clearCaption(item.card);
+          seen.add(item.card);
+        }
+      }
+    }
+    ui.results.querySelectorAll('.card').forEach((card) => {
+      if (!seen.has(card)) {
+        clearCaption(card);
+      }
+    });
     updateSaveZipButton();
   });
 
@@ -657,40 +684,189 @@ EXAMPLES:
     }
   })();
 
-  ui.btnCaption.addEventListener('click', async () => {
+  async function refreshItemsFromFiles() {
+    if (!ui.files || state.running) return;
+
+    const seq = ++state.refreshSeq;
+
+    const inputFiles = Array.from(ui.files.files || []);
+    const outputFiles = state.isImageToImageMode ? Array.from(ui.outputFiles?.files || []) : [];
+
+    if (inputFiles.length === 0) {
+      if (seq !== state.refreshSeq) return;
+      state.currentItems = [];
+      ui.results.innerHTML = '';
+      resultsStore.clear();
+      ui.progressBar.value = 0;
+      ui.progressText.textContent = 'Idle';
+      ui.progressText.className = '';
+      updateSaveZipButton();
+      return;
+    }
+
+    ui.progressText.textContent = 'Preparing preview...';
+    ui.progressText.className = 'processing';
+    ui.progressBar.value = 0;
+
+    try {
+      const { items, captionMap } = await buildItemsFromFiles(inputFiles, outputFiles);
+      if (seq !== state.refreshSeq) return;
+      state.currentItems = items;
+      ui.results.innerHTML = '';
+      resultsStore.clear();
+
+      for (const item of items) {
+        const card = renderCard(item);
+        item.card = card;
+        resultsStore.set(item.name, { caption: '', error: null });
+      }
+
+      for (const item of items) {
+        const baseKey = getBaseFilename(item.name || '').toLowerCase();
+        if (captionMap.has(baseKey) && item.card) {
+          const text = captionMap.get(baseKey);
+          if (typeof text === 'string' && text.length > 0) {
+            setCardCaption(item.card, text);
+          }
+        }
+      }
+
+      ui.progressText.textContent = 'Files ready';
+      ui.progressText.className = 'success';
+    } catch (error) {
+      if (seq !== state.refreshSeq) return;
+      state.currentItems = [];
+      ui.results.innerHTML = '';
+      resultsStore.clear();
+      ui.progressText.textContent = 'Error preparing files: ' + (error?.message || 'Unknown error');
+      ui.progressText.className = 'error';
+    } finally {
+      if (seq === state.refreshSeq) {
+        updateSaveZipButton();
+      }
+    }
+  }
+
+  async function buildItemsFromFiles(inputFiles, outputFiles) {
+    const captionMap = new Map();
+    const mediaInputs = [];
+
+    for (const file of inputFiles) {
+      if (isText(file)) {
+        try {
+          const text = (await readFileAsText(file)).replace(/^\uFEFF/, '');
+          const base = getBaseFilename(file.name).toLowerCase();
+          captionMap.set(base, text);
+        } catch (error) {
+          console.warn('Failed to read caption file', file?.name, error);
+        }
+      } else {
+        mediaInputs.push(file);
+      }
+    }
+
+    const outputMediaMap = new Map();
+    if (state.isImageToImageMode && outputFiles && outputFiles.length > 0) {
+      for (const file of outputFiles) {
+        if (isText(file)) {
+          try {
+            const text = (await readFileAsText(file)).replace(/^\uFEFF/, '');
+            const base = getBaseFilename(file.name).toLowerCase();
+            if (!captionMap.has(base)) {
+              captionMap.set(base, text);
+            }
+          } catch (error) {
+            console.warn('Failed to read caption file', file?.name, error);
+          }
+          continue;
+        }
+        if (!isImage(file)) continue;
+        const dataUrl = await readFileAsDataURL(file);
+        outputMediaMap.set(getBaseFilename(file.name).toLowerCase(), { dataUrl, name: file.name });
+      }
+    }
+
+    const items = [];
+
+    for (const file of mediaInputs) {
+      if (state.isImageToImageMode && isImage(file)) {
+        const base = getBaseFilename(file.name);
+        const outputMatch = outputMediaMap.get(base.toLowerCase());
+        if (outputMatch) {
+          const inputDataUrl = await readFileAsDataURL(file);
+          items.push({
+            kind: 'image-pair',
+            name: base,
+            inputName: file.name,
+            outputName: outputMatch.name,
+            inputDataUrl,
+            outputDataUrl: outputMatch.dataUrl,
+            type: 'image-pair',
+          });
+          continue;
+        }
+      }
+
+      if (isImage(file)) {
+        const dataUrl = await readFileAsDataURL(file);
+        items.push({ kind: 'image', name: file.name, type: file.type, dataUrl });
+      } else if (isVideo(file)) {
+        items.push({ kind: 'video', name: file.name, type: file.type, dataUrls: null, file });
+      }
+    }
+
+    return { items, captionMap };
+  }
+
+  ui.files?.addEventListener('change', () => { refreshItemsFromFiles(); });
+  ui.outputFiles?.addEventListener('change', () => { refreshItemsFromFiles(); });
+
+  function getCardText(card) {
+    if (!card) return '';
+    const caption = card.querySelector('.caption');
+    const textarea = card._captionText || caption?.querySelector('textarea');
+    if (textarea) return textarea.value || '';
+    return caption?.textContent || '';
+  }
+
+  function cardNeedsCaption(card) {
+    if (!card) return true;
+    const caption = card.querySelector('.caption');
+    if (caption?.classList.contains('error')) return true;
+    return getCardText(card).trim().length === 0;
+  }
+
+  async function startCaptioning({ onlyUncaptioned = false } = {}) {
     const apiKey = getAuthKey();
     if (!apiKey) {
       alert('Please enter your API key.');
       return;
     }
 
-    // Validate custom VLLM endpoint if enabled
     if (api.useCustomEndpoint) {
       if (!api.customEndpointBase) {
         alert('Please enter a VLLM server IP:port.');
         return;
       }
-      // Validate endpoint format (IP:port, domain, or full URL)
       const endpointPattern = /^((https?:\/\/)?[a-zA-Z0-9.-]+(\:[0-9]+)?|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+)$/;
       if (!endpointPattern.test(api.customEndpointBase)) {
         alert('Please enter a valid endpoint format (e.g., 192.168.1.100:8000, example.com, or https://example.com).');
         return;
       }
-      // Construct full URL for API calls
       if (api.customEndpointBase.startsWith('http://') || api.customEndpointBase.startsWith('https://')) {
-        // Full URL provided, use as-is and append API path
         api.customEndpoint = `${api.customEndpointBase}/v1/chat/completions`;
       } else {
-        // IP:port or domain format, use http protocol
         api.customEndpoint = `http://${api.customEndpointBase}/v1/chat/completions`;
       }
     }
+
     const systemPrompt = ui.systemPrompt.value.trim();
     if (!systemPrompt) {
       alert('Please enter a system prompt.');
       return;
     }
-    const inputFiles = Array.from(ui.files.files || []);
+
+    const inputFiles = Array.from(ui.files?.files || []);
     const outputFiles = state.isImageToImageMode ? Array.from(ui.outputFiles?.files || []) : [];
 
     if (inputFiles.length === 0) {
@@ -703,11 +879,25 @@ EXAMPLES:
       return;
     }
 
-    setRunning(true);
-    ui.results.innerHTML = '';
-    state.abortController = new AbortController();
-    resultsStore.clear();
-    updateSaveZipButton();
+    if (!state.currentItems || state.currentItems.length === 0) {
+      await refreshItemsFromFiles();
+    }
+
+    const items = state.currentItems || [];
+    let itemsToProcess = items;
+
+    if (onlyUncaptioned) {
+      itemsToProcess = items.filter((item) => cardNeedsCaption(item.card));
+      if (itemsToProcess.length === 0) {
+        alert('No uncaptioned items to caption.');
+        return;
+      }
+    }
+
+    if (itemsToProcess.length === 0) {
+      alert('No items to caption.');
+      return;
+    }
 
     const framesPerVideo = parseInt(ui.framesPerVideo.value, 10);
     const maxRps = parseInt(ui.rps.value, 20);
@@ -715,36 +905,27 @@ EXAMPLES:
     const retryLimit = parseInt(ui.retryLimit.value, 5);
     const targetMp = parseFloat(ui.downscaleMp.value);
 
-    // Show upload progress while preparing items
-    ui.progressText.textContent = 'Preparing files...';
-    ui.progressText.className = 'processing';
-    ui.progressBar.value = 0;
+    setRunning(true);
     ui.files.classList.add('processing');
     if (ui.outputFiles) ui.outputFiles.classList.add('processing');
+    state.abortController = new AbortController();
 
-    let items;
-    try {
-      items = await prepareItems(inputFiles, outputFiles, framesPerVideo);
-    } catch (error) {
-      ui.files.classList.remove('processing');
-      if (ui.outputFiles) ui.outputFiles.classList.remove('processing');
-      ui.progressText.textContent = 'Error preparing files: ' + (error.message || 'Unknown error');
-      ui.progressText.className = 'error';
-      setRunning(false);
-      return;
-    }
+    ui.progressText.className = 'processing';
+    updateProgress(0, itemsToProcess.length);
 
-    ui.files.classList.remove('processing');
-    const totalRequests = items.length;
-    updateProgress(0, totalRequests);
-
-    // simple token bucket limiter
     const limiter = createRateLimiter({ rps: maxRps, concurrency: maxConcurrency });
-
     let completed = 0;
 
-    const tasks = items.map((item, index) => async () => {
-      const card = renderCard(item);
+    const tasks = itemsToProcess.map((item) => async () => {
+      const card = item.card || renderCard(item);
+      if (!item.card) item.card = card;
+      const captionEl = card.querySelector('.caption');
+      captionEl?.classList.remove('error');
+      if (card._captionText) {
+        card._captionText.placeholder = 'Captioning...';
+      }
+      if (card._btnCopy) card._btnCopy.classList.add('hidden');
+
       try {
         const caption = await captionItem({
           apiKey,
@@ -754,27 +935,27 @@ EXAMPLES:
           signal: state.abortController.signal,
           retryLimit,
           targetMp,
+          framesPerVideo,
         });
         setCardCaption(card, caption);
         resultsStore.set(item.name, { caption, error: null });
-        updateSaveZipButton();
       } catch (err) {
         setCardError(card, err);
         resultsStore.set(item.name, { caption: '', error: (err && err.message) ? err.message : String(err) });
-        updateSaveZipButton();
       } finally {
         completed += 1;
-        updateProgress(completed, totalRequests);
+        updateProgress(completed, itemsToProcess.length);
+        updateSaveZipButton();
       }
     });
 
     try {
       await runWithLimiter(tasks, limiter);
-      if (!state.running) return; // cancelled
+      if (!state.running) return;
       ui.progressText.textContent = 'Done';
       ui.progressText.className = 'success';
     } catch (error) {
-      ui.progressText.textContent = 'Error: ' + (error.message || 'Unknown error');
+      ui.progressText.textContent = 'Error: ' + (error?.message || 'Unknown error');
       ui.progressText.className = 'error';
       console.error('Captioning error:', error);
     } finally {
@@ -782,8 +963,12 @@ EXAMPLES:
       ui.files.classList.remove('processing');
       if (ui.outputFiles) ui.outputFiles.classList.remove('processing');
       setRunning(false);
+      state.abortController = null;
     }
-  });
+  }
+
+  ui.btnCaption?.addEventListener('click', () => { startCaptioning({ onlyUncaptioned: false }); });
+  ui.btnCaptionUncaptioned?.addEventListener('click', () => { startCaptioning({ onlyUncaptioned: true }); });
 
   function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
 
@@ -795,6 +980,11 @@ EXAMPLES:
 
   function isImage(file) { return file.type.startsWith('image/'); }
   function isVideo(file) { return file.type.startsWith('video/'); }
+  function isText(file) {
+    if (!file) return false;
+    if (file.type && file.type.startsWith('text/')) return true;
+    return /\.txt$/i.test(file.name || '');
+  }
 
 
   function updateModeUI() {
@@ -1046,99 +1236,21 @@ EXAMPLES:
     renderPresetOptions(presets, presetToSelect);
   }
 
-  async function prepareItems(inputFiles, outputFiles, framesPerVideo) {
-    const items = [];
-    let processed = 0;
-
-    // Create a map of output files by base filename for quick lookup
-    const outputFilesMap = new Map();
-    if (outputFiles) {
-      for (const file of outputFiles) {
-        const baseName = getBaseFilename(file.name);
-        outputFilesMap.set(baseName, file);
-      }
-    }
-
-    const totalFiles = inputFiles.length;
-
-    if (state.isImageToImageMode) {
-      // Handle image-to-image mode with separate input/output files
-      for (const inputFile of inputFiles) {
-        const fileProgress = Math.round((processed / totalFiles) * 100);
-        ui.progressText.textContent = `Preparing image pairs... (${processed + 1}/${totalFiles})`;
-        ui.progressBar.value = fileProgress;
-
-        if (isImage(inputFile)) {
-          const inputBaseName = getBaseFilename(inputFile.name);
-          const outputFile = outputFilesMap.get(inputBaseName);
-
-          if (outputFile && isImage(outputFile)) {
-            // We have a matching pair
-            const inputDataUrl = await readFileAsDataURL(inputFile);
-            const outputDataUrl = await readFileAsDataURL(outputFile);
-
-            items.push({
-              kind: 'image-pair',
-              name: inputBaseName,
-              inputName: inputFile.name,
-              outputName: outputFile.name,
-              inputDataUrl: inputDataUrl,
-              outputDataUrl: outputDataUrl,
-              type: 'image-pair'
-            });
-          } else {
-            // Input file without matching output - treat as regular image
-            const dataUrl = await readFileAsDataURL(inputFile);
-            items.push({
-              kind: 'image',
-              name: inputFile.name,
-              type: inputFile.type,
-              dataUrl: dataUrl
-            });
-          }
-        } else if (isVideo(inputFile)) {
-          // Videos are not supported in image-to-image mode for now
-          ui.progressText.textContent = `Processing video frames... (${processed + 1}/${totalFiles})`;
-          const frames = await extractVideoFrames(inputFile, framesPerVideo);
-          items.push({ kind: 'video', name: inputFile.name, type: inputFile.type, dataUrls: frames, file: inputFile });
-        }
-        processed++;
-      }
-    } else {
-      // Handle regular text-to-image mode
-      for (const file of inputFiles) {
-        const fileProgress = Math.round((processed / totalFiles) * 100);
-        ui.progressText.textContent = `Preparing files... (${processed + 1}/${totalFiles})`;
-        ui.progressBar.value = fileProgress;
-
-        if (isImage(file)) {
-          const dataUrl = await readFileAsDataURL(file);
-          items.push({ kind: 'image', name: file.name, type: file.type, dataUrl: dataUrl });
-        } else if (isVideo(file)) {
-          ui.progressText.textContent = `Processing video frames... (${processed + 1}/${totalFiles})`;
-          const frames = await extractVideoFrames(file, framesPerVideo);
-          items.push({ kind: 'video', name: file.name, type: file.type, dataUrls: frames, file: file });
-        }
-        processed++;
-      }
-    }
-
-    // Final progress update
-    ui.progressText.textContent = `Files ready! Starting captioning...`;
-    ui.progressBar.value = 100;
-
-    // Brief pause to show completion before starting captioning
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    return items;
-  }
-
   function readFileAsDataURL(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onerror = () => reject(new Error('Failed to read file'));
       reader.onload = () => resolve(reader.result);
       reader.readAsDataURL(file);
+    });
+  }
+
+  function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Failed to read caption file'));
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.readAsText(file);
     });
   }
 
@@ -1156,8 +1268,9 @@ EXAMPLES:
       const frames = [];
 
       for (let i = 0; i < timestamps.length; i++) {
-        const frameProgress = Math.round(((i + 1) / timestamps.length) * 100);
-        ui.progressText.textContent = `Extracting video frames... (${i + 1}/${timestamps.length})`;
+        if (!state.running) {
+          ui.progressText.textContent = `Extracting video frames... (${i + 1}/${timestamps.length})`;
+        }
         frames.push(await captureFrame(video, timestamps[i]));
       }
       return frames;
@@ -1207,7 +1320,7 @@ EXAMPLES:
     caption.className = 'caption';
     const captionText = document.createElement('textarea');
     caption.appendChild(captionText);
-    captionText.placeholder = 'Captioning... ';
+    captionText.placeholder = 'Caption...';
     captionText.setAttribute('spellcheck', 'true');
     captionText.setAttribute('autocomplete', 'off');
     captionText.setAttribute('autocorrect', 'off');
@@ -1235,8 +1348,17 @@ EXAMPLES:
         const entry = resultsStore.get(item.name);
         if (entry) {
           entry.caption = captionText.value;
+          entry.error = null;
         } else {
           resultsStore.set(item.name, { caption: captionText.value, error: null });
+        }
+      }
+      caption.classList.remove('error');
+      if (card._btnCopy) {
+        if (captionText.value.trim().length > 0) {
+          card._btnCopy.classList.remove('hidden');
+        } else {
+          card._btnCopy.classList.add('hidden');
         }
       }
       updateSaveZipButton();
@@ -1314,6 +1436,16 @@ EXAMPLES:
 
     const metaRight = document.createElement('div');
     metaRight.className = 'meta-right';
+    const btnClearCaption = document.createElement('button');
+    btnClearCaption.className = 'btnClearCaption icon-btn';
+    btnClearCaption.innerHTML = `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+      </svg>`;
+    btnClearCaption.setAttribute('aria-label', 'Clear caption');
+    btnClearCaption.title = 'Clear caption';
+    btnClearCaption.addEventListener('click', () => { if (!state.running) clearCaption(card); });
     const btnCopy = document.createElement('button');
     btnCopy.className = 'btnCopy icon-btn hidden';
     btnCopy.innerHTML = `
@@ -1331,6 +1463,7 @@ EXAMPLES:
     btnReroll.setAttribute('aria-label', 'Re-roll caption');
     btnReroll.title = 'Re-roll caption';
     btnReroll.addEventListener('click', () => rerollCaption(card, item));
+    metaRight.appendChild(btnClearCaption);
     metaRight.appendChild(btnCopy);
     metaRight.appendChild(btnReroll);
 
@@ -1344,6 +1477,7 @@ EXAMPLES:
     ui.results.appendChild(card);
     // Store textarea for later use
     card._captionText = captionText;
+    card._btnClearCaption = btnClearCaption;
     card._btnCopy = btnCopy;
     card._btnReroll = btnReroll;
     card._item = item;
@@ -1355,6 +1489,7 @@ EXAMPLES:
     const textarea = card._captionText || caption.querySelector('textarea');
     if (textarea) {
       textarea.value = text;
+      textarea.placeholder = 'Caption...';
       // Trigger input event to auto-resize and update store
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     } else {
@@ -1376,11 +1511,41 @@ EXAMPLES:
         textarea.style.height = newHeight + 'px';
         textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
       } catch {}
+      textarea.placeholder = 'Caption...';
     } else {
       caption.textContent = message;
     }
     caption.classList.add('error');
     if (card._btnCopy) card._btnCopy.classList.add('hidden');
+  }
+
+  function clearCaption(card) {
+    if (!card || state.running) return;
+    const caption = card.querySelector('.caption');
+    const textarea = card._captionText || caption?.querySelector('textarea');
+    if (caption) {
+      caption.classList.remove('error');
+    }
+    if (textarea) {
+      if (textarea.value !== '') {
+        textarea.value = '';
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      } else {
+        textarea.placeholder = 'Caption...';
+        if (card._btnCopy) card._btnCopy.classList.add('hidden');
+      }
+      textarea.placeholder = 'Caption...';
+    } else if (caption) {
+      caption.textContent = '';
+    }
+    if (card._btnCopy) card._btnCopy.classList.add('hidden');
+    if (card._item && card._item.name) {
+      const existing = resultsStore.get(card._item.name) || { caption: '', error: null };
+      existing.caption = '';
+      existing.error = null;
+      resultsStore.set(card._item.name, existing);
+    }
+    updateSaveZipButton();
   }
 
   async function copyCaption(card) {
@@ -1407,6 +1572,7 @@ EXAMPLES:
       if (!systemPrompt) { alert('Enter system prompt.'); return; }
       const retryLimit = clamp(parseInt(ui.retryLimit.value, 10) || 0, 0, 5);
       const targetMp = clamp(parseFloat(ui.downscaleMp.value) || 1, 0.2, 5);
+      const framesPerVideo = parseInt(ui.framesPerVideo.value, 10);
 
       card._btnReroll.disabled = true;
       const caption = await captionItem({
@@ -1417,6 +1583,7 @@ EXAMPLES:
         signal: undefined,
         retryLimit,
         targetMp,
+        framesPerVideo,
       });
       setCardCaption(card, caption);
       resultsStore.set(item.name, { caption, error: null });
@@ -1528,8 +1695,15 @@ EXAMPLES:
     await Promise.allSettled(promises);
   }
 
-  async function captionItem({ apiKey, model, systemPrompt, item, signal, retryLimit, targetMp }) {
+  async function captionItem({ apiKey, model, systemPrompt, item, signal, retryLimit, targetMp, framesPerVideo }) {
     let processedDataUrls;
+
+    if (item && item.kind === 'video' && (!Array.isArray(item.dataUrls) || item.dataUrls.length === 0)) {
+      const frameCount = Number.isFinite(framesPerVideo) && framesPerVideo > 0 ? framesPerVideo : parseInt(ui.framesPerVideo.value, 10) || 1;
+      if (item.file) {
+        item.dataUrls = await extractVideoFrames(item.file, frameCount);
+      }
+    }
 
     if (item.kind === 'image-pair') {
       // For image pairs, downscale both input and output images

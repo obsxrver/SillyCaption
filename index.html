@@ -167,7 +167,7 @@
             </div>
             <div class="field">
                 <label for="files">Upload Images/Videos</label>
-                <input type="file" id="files" accept="image/*,video/*" multiple>
+                <input type="file" id="files" accept="image/*,video/*,.txt,text/plain" multiple>
             </div>
 
             <div class="field" id="outputFilesField" style="display: none;">
@@ -239,8 +239,10 @@
 
             <div class="buttons">
                 <button id="btnCaption">Caption</button>
+                <button id="btnCaptionUncaptioned">Caption Uncaptioned</button>
                 <button id="btnCancel" disabled>Cancel</button>
                 <button id="btnClear">Clear</button>
+                <button id="btnClearAllCaptions">Clear All Captions</button>
             </div>
             <div class="hint">Your API key is only used locally in this browser tab.</div>
         </section>
