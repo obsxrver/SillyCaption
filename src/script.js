@@ -102,28 +102,32 @@
     const woman = {
       name: 'Character LoRA - Woman',
       prompt:
-        `Generate a caption for this image or sequence of images following this exact format:
-"ohwx woman, [clothing], [pose/what she is doing], [gaze direction], [scene/setting],  [lighting]"
+        `Generate a caption for this image or sequence of images following this format:
+"ohwx_girl, wearing [clothing], [how she is posed],  [scene], [setting], [framing], [lighting]"
 
 Rules:
-1. Clothing: List all visible clothing items
-2. pose/what she is doing: Describe How she is and/or what she is doing
-4. Gaze Direction: State where she's looking OR write "eyes closed"
-   - If looking at viewer/camera, write "looking at camera"
-5. Scene/Setting: Describe the environment/background
-6. Lighting: Describe the lighting
+1. Clothing: List all visible clothing items and prominent accessories
+2. Pose: Describe a. How she is posed and b. her facial expression and c. direction of her gaze (when eyes are open), if looking at the viewer/camera, use "looking at camera"
+3. Scene: What, if anything, the person is doing in the shot
+4. Setting: brief description of the foreground and background
+5. Framing, how much of the person is in the shot
+6. Lighting: how the scene is illuminated
 
 STRICT REQUIREMENTS:
-- NEVER describe physical features (hair color, skin tone, eye color, body proportions, birthmarks, tattoos etc.)
+- NEVER describe static/intrinsic/identity-level features (hair color, skin tone, eye color, body proportions, birthmarks, tattoos etc.)
 - Keep caption under 60 tokens
 - Use concise, descriptive language
 - Separate each section with commas
-- Start every caption with "ohwx woman"
+- Start every caption with "ohwx_girl"
 
 Example output:
-ohwx woman, wearing a t-shirt, cargo pants and running shoes, running on a trail, looking straight ahead, on a path in an Appalachian forest surrounded by trees, sunlight filtered through trees
-ohwx woman, spaghetti sauce-stained oversized T-Shirt,  standing up, arguing and gesturing angrily with her hands, looking at camera, in the kitchen, indoor lighting
-ohwx woman in her underwear, lying on her stomach with her hands on her chin and feet in the air, winking at the camera, in her bedroom, soft red LED lighting`,
+ohwx_girl, wearing a white sports bra and black athletic shorts, standing with hands on hips, smiling and looking up, exercising outdoors, on a running track with a stadium in the background, medium shot of her head and torso, bright daylight
+
+ohwx_girl, wearing a floral sundress and a straw hat, sitting on a blanket and holding a book, relaxed and looking down at the book, reading, in a grassy field with trees, full body, soft afternoon light
+
+ohwx_girl, wearing a gray blazer and black slacks, standing and gesturing with one hand, focused and looking slightly off-camera, giving a presentation, full body, in a modern office with large windows, overheard fluorescent light
+
+ohwx_girl, wearing a crocheted vest and denim cutoff shorts, leaning against a vintage car, smirking and looking at camera, posing next to a vehicle, in a paved parking lot with a brick wall, close-up of head and shoulders, warm ambient light`,
     };
     const style = {
       name: 'Style LoRA',
@@ -446,8 +450,13 @@ EXAMPLES:
       presets = defaultPresets();
       savePresets(presets);
     }
-    let selectedName = null;
-    try { selectedName = localStorage.getItem(storageKeys.lastPreset) || null; } catch { }
+    //auto-fill one of the default presets so there's something on first load
+    let selectedName = 'Character LoRA - Woman';
+    if (localStorage.getItem(storageKeys.lastPreset)) {
+      selectedName = localStorage.getItem(storageKeys.lastPreset);
+    }else{
+      localStorage.setItem(storageKeys.lastPreset, selectedName);
+    }
     renderPresetOptions(presets, selectedName);
 
     if (selectedName) {
