@@ -1,7 +1,7 @@
 # Silly Caption
 ## *Serious Edition*
 ### A lightweight, brower-based AI autocaptioning tool
-#### https://obsxrver.pro/SillyCaption
+#### https://obsxrver.com/SillyCaption
 
 ## Features:
 - Openrouter.AI Integration
