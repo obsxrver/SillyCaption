@@ -62,6 +62,7 @@
     modelSearch: el('modelSearch'),
     modelOptions: el('modelOptions'),
     sortOrder: el('sortOrder'),
+    videoFilter: el('videoFilter'),
     reasoningToggle: el('reasoningToggle'),
     reasoningToggleField: el('reasoningToggleField'),
     modeToggle: el('modeToggle'),
@@ -2006,19 +2007,32 @@ Instructions: ${systemPrompt}`;
     return model.supported_parameters.includes('reasoning');
   }
 
+  function modelSupportsVideo(model) {
+    if (!model) return false;
+    // Check if model has video in input_modalities
+    if (model.architecture && 
+        model.architecture.input_modalities && 
+        model.architecture.input_modalities.includes('video')) {
+      return true;
+    }
+    return false;
+  }
+
   function renderModelOptions() {
     if (!ui.modelOptions) return;
 
     const provider = ui.providerFilter?.value || 'all';
     const searchTerm = (ui.modelSearch?.value || '').toLowerCase();
     const sortOrder = ui.sortOrder?.value || 'chronological';
+    const videoFilterValue = ui.videoFilter?.value || 'all';
 
     let filteredModels = state.models.filter(model => {
       const modelProvider = getModelProvider(model.id, model);
       const matchesProvider = provider === 'all' || modelProvider === provider;
       const matchesSearch = model.id.toLowerCase().includes(searchTerm) ||
         (model.name && model.name.toLowerCase().includes(searchTerm));
-      return matchesProvider && matchesSearch;
+      const matchesVideo = videoFilterValue === 'all' || modelSupportsVideo(model);
+      return matchesProvider && matchesSearch && matchesVideo;
     });
 
     // Apply sorting
@@ -2044,8 +2058,14 @@ Instructions: ${systemPrompt}`;
         option.classList.add('selected');
       }
 
+      // Build model name with video indicator if supported
+      const supportsVideo = modelSupportsVideo(model);
+      const videoIndicator = supportsVideo 
+        ? '<span class="video-indicator" title="Supports video upload">🎬</span>' 
+        : '';
+
       option.innerHTML = `
-          <div class="model-name">${model.name || model.id}</div>
+          <div class="model-name">${model.name || model.id}${videoIndicator}</div>
           <div class="model-provider">${getModelProvider(model.id, model)}</div>
         `;
 
@@ -2116,6 +2136,9 @@ Instructions: ${systemPrompt}`;
     }
     if (ui.sortOrder) {
       ui.sortOrder.addEventListener('change', renderModelOptions);
+    }
+    if (ui.videoFilter) {
+      ui.videoFilter.addEventListener('change', renderModelOptions);
     }
     
     // Mode toggle event

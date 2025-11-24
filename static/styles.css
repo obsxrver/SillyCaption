@@ -710,7 +710,7 @@ input[type="file"].processing::after {
 .custom-options-header {
   padding: 12px;
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr auto auto 1.5fr;
   gap: 12px;
   border-bottom: 1px solid var(--border);
   background: rgba(32, 32, 32, 0.5);
@@ -748,12 +748,32 @@ input[type="file"].processing::after {
   font-weight: 600; 
   margin-bottom: 2px;
   font-family: 'Georgia', 'Times New Roman', 'Tiempos Text', 'Charter', serif;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .custom-option .model-provider { 
   color: var(--muted); 
   font-size: 12px; 
   opacity: 0.8;
+}
+
+/* Video indicator styling */
+.video-indicator {
+  font-size: 14px;
+  cursor: help;
+  opacity: 0.9;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.video-indicator:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+#videoFilter {
+  min-width: 100px;
 }
 
 .status { 
