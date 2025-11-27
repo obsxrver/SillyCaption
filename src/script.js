@@ -99,6 +99,15 @@
 
   // Presets helpers
   function defaultPresets() {
+    const annotator = {
+      name: 'Image/Video Annotator',
+      prompt:
+        `You are a professional image and video annotator.
+Create one natural, descriptive caption per image or video.
+Enrich the caption with object attributes, relationships between objects, and environmental details.
+If any text is visible, include it inside quotation marks within the caption.
+Stay accurate to the media—avoid generalizations or invented details.`,
+    };
     const woman = {
       name: 'Character LoRA - Woman',
       prompt:
@@ -257,7 +266,7 @@ EXAMPLES:
 ✓ "zoomed in and centered the subject"`,
     };
 
-    return [woman, style, action, styleTransfer, colorCorrection, compositionEdit];
+    return [annotator, woman, style, action, styleTransfer, colorCorrection, compositionEdit];
   }
 
   function loadPresets() {
@@ -451,7 +460,7 @@ EXAMPLES:
       savePresets(presets);
     }
     //auto-fill one of the default presets so there's something on first load
-    let selectedName = 'Character LoRA - Woman';
+    let selectedName = 'Image/Video Annotator';
     if (localStorage.getItem(storageKeys.lastPreset)) {
       selectedName = localStorage.getItem(storageKeys.lastPreset);
     }else{
