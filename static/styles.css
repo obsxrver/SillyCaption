@@ -710,15 +710,28 @@ input[type="file"].processing::after {
 .custom-options-header {
   padding: 12px;
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 12px;
   border-bottom: 1px solid var(--border);
   background: rgba(32, 32, 32, 0.5);
 }
 
-.custom-options-header input, .custom-options-header select { 
-  width: 100%; 
+.custom-options-header input,
+.custom-options-header select {
+  width: 100%;
   padding: 8px 12px;
+  font-size: 13px;
+}
+
+.custom-options-header input[type="checkbox"] {
+  width: auto;
+}
+
+.custom-options-header .model-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
   font-size: 13px;
 }
 
