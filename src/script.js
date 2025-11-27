@@ -62,6 +62,7 @@
     modelSearch: el('modelSearch'),
     modelOptions: el('modelOptions'),
     sortOrder: el('sortOrder'),
+    videoFilter: el('videoFilter'),
     reasoningToggle: el('reasoningToggle'),
     reasoningToggleField: el('reasoningToggleField'),
     modeToggle: el('modeToggle'),
@@ -2055,13 +2056,15 @@ Instructions: ${systemPrompt}`;
     const provider = ui.providerFilter?.value || 'all';
     const searchTerm = (ui.modelSearch?.value || '').toLowerCase();
     const sortOrder = ui.sortOrder?.value || 'chronological';
+    const videoOnly = ui.videoFilter?.checked || false;
 
     let filteredModels = state.models.filter(model => {
       const modelProvider = getModelProvider(model.id, model);
       const matchesProvider = provider === 'all' || modelProvider === provider;
       const matchesSearch = model.id.toLowerCase().includes(searchTerm) ||
         (model.name && model.name.toLowerCase().includes(searchTerm));
-      return matchesProvider && matchesSearch;
+      const matchesVideo = !videoOnly || modelSupportsVideo(model.id);
+      return matchesProvider && matchesSearch && matchesVideo;
     });
 
     // Apply sorting
@@ -2162,6 +2165,9 @@ Instructions: ${systemPrompt}`;
     }
     if (ui.sortOrder) {
       ui.sortOrder.addEventListener('change', renderModelOptions);
+    }
+    if (ui.videoFilter) {
+      ui.videoFilter.addEventListener('change', renderModelOptions);
     }
     
     // Mode toggle event
