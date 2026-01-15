@@ -211,8 +211,18 @@ footer .separator {
 
 main { 
   padding: 32px; 
-  max-width: 1400px;
+  max-width: 100%;
   margin: 0 auto;
+}
+
+.layout {
+  display: grid;
+  gap: 24px;
+}
+
+.controls-column,
+.results-column {
+  min-width: 0;
 }
 
 .controls {
@@ -244,6 +254,19 @@ main {
   transform: translateY(-2px);
   box-shadow: var(--shadow-xl);
   border-color: var(--border-light);
+}
+
+@media (min-width: 1100px) {
+  .layout {
+    grid-template-columns: minmax(320px, 420px) 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+
+  .controls {
+    position: sticky;
+    top: 24px;
+  }
 }
 
 .field {
@@ -1325,4 +1348,3 @@ textarea:focus-visible {
   visibility: visible;
   opacity: 1;
 }
-
