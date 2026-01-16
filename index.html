@@ -107,7 +107,7 @@
     <main>
         <div class="layout">
             <div class="controls-column">
-                <section class="controls">
+                <section class="controls surface">
                     <div class="field">
                         <label>OpenRouter Account</label>
                         <div class="oauth-row">
@@ -288,11 +288,15 @@
             </div>
 
             <div class="results-column">
-                <section class="status">
+                <section class="status surface">
                     <div id="progressText">Idle</div>
                     <progress id="progressBar" value="0" max="100"></progress>
                 </section>
 
+                <div class="results-header surface">
+                    <h2>Results</h2>
+                    <div class="hint">Captions, previews, and exports will appear here as files finish processing.</div>
+                </div>
                 <section id="results" class="results"></section>
             </div>
         </div>
