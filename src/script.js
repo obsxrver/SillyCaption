@@ -79,6 +79,8 @@
     customVllmPasswordField: el('customVllmPasswordField'),
     vllmStatusIndicator: el('vllmStatusIndicator'),
     vllmStatusTooltip: el('vllmStatusTooltip'),
+    cardSizeRange: el('cardSizeRange'),
+    cardSizeValue: el('cardSizeValue'),
   };
 
   // Persistent storage keys
@@ -96,7 +98,10 @@
     customVllmBearerToken: 'sc_custom_vllm_bearer_token',
     customVllmUsername: 'sc_custom_vllm_username',
     customVllmPassword: 'sc_custom_vllm_password',
+    cardSize: 'sc_card_size',
   };
+
+  const defaultCardSize = 360;
 
   // Presets helpers
   function defaultPresets() {
@@ -308,6 +313,14 @@ EXAMPLES:
     }
   }
 
+  function applyCardSize(size) {
+    const clamped = Math.max(260, Math.min(520, size));
+    if (ui.results) ui.results.style.setProperty('--card-min-width', `${clamped}px`);
+    if (ui.cardSizeValue) ui.cardSizeValue.textContent = `${clamped}px`;
+    if (ui.cardSizeRange) ui.cardSizeRange.value = String(clamped);
+    return clamped;
+  }
+
   function initPersistence() {
     // API key
     try {
@@ -418,6 +431,22 @@ EXAMPLES:
             fetchVllmModels();
           }
         }
+      });
+    }
+
+    if (ui.cardSizeRange) {
+      let startingSize = defaultCardSize;
+      try {
+        const savedSize = localStorage.getItem(storageKeys.cardSize);
+        if (savedSize) startingSize = Number.parseInt(savedSize, 10);
+      } catch { }
+      const applied = applyCardSize(Number.isNaN(startingSize) ? defaultCardSize : startingSize);
+      try { localStorage.setItem(storageKeys.cardSize, String(applied)); } catch { }
+
+      ui.cardSizeRange.addEventListener('input', () => {
+        const next = Number.parseInt(ui.cardSizeRange.value, 10);
+        const appliedValue = applyCardSize(Number.isNaN(next) ? defaultCardSize : next);
+        try { localStorage.setItem(storageKeys.cardSize, String(appliedValue)); } catch { }
       });
     }
 
@@ -2184,4 +2213,3 @@ Instructions: ${systemPrompt}`;
   // Initialize mode UI
   updateModeUI();
 })();
-
