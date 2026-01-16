@@ -267,11 +267,23 @@ main {
     position: sticky;
     top: 24px;
   }
+
+  .field-group {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .field {
   display: grid;
   gap: 8px;
+  min-width: 0;
+}
+
+.field-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
   min-width: 0;
 }
 
@@ -430,7 +442,7 @@ button#btnClear:hover {
 }
 .preset-row { 
   display: grid; 
-  grid-template-columns: 1fr 1fr auto auto; 
+  grid-template-columns: 1fr auto auto; 
   gap: 12px; 
   align-items: end;
 }
