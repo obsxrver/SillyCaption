@@ -810,11 +810,37 @@ input[type="file"].processing::after {
 .status { 
   margin: 24px 0; 
   display: flex; 
-  align-items: center; 
-  gap: 16px; 
+  flex-direction: column;
+  align-items: flex-start; 
+  gap: 12px; 
   padding: 16px 20px;
   background: rgba(26, 26, 26, 0.6);
   border-radius: 12px;
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.card-size-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.card-size-control input[type="range"] {
+  accent-color: var(--accent-color);
+  width: min(240px, 50vw);
+}
+
+.card-size-control span {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
 }
 
 progress {
@@ -843,10 +869,12 @@ progress::-moz-progress-bar {
 }
 
 .results {
+  --card-min-width: 360px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-min-width), 1fr));
   gap: 24px;
   margin-top: 20px;
+  transition: grid-template-columns 0.2s ease;
 }
 
 .results-header {

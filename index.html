@@ -289,8 +289,15 @@
 
             <div class="results-column">
                 <section class="status surface">
-                    <div id="progressText">Idle</div>
-                    <progress id="progressBar" value="0" max="100"></progress>
+                    <div class="progress-row">
+                        <div id="progressText">Idle</div>
+                        <progress id="progressBar" value="0" max="100"></progress>
+                    </div>
+                    <div class="card-size-control">
+                        <label for="cardSizeRange">Card size</label>
+                        <input type="range" id="cardSizeRange" min="260" max="520" step="20" value="360">
+                        <span id="cardSizeValue" aria-live="polite">360px</span>
+                    </div>
                 </section>
 
                 <div class="results-header surface">
