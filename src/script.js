@@ -45,6 +45,7 @@
     framesPerVideo: el('framesPerVideo'),
     retryLimit: el('retryLimit'),
     downscaleMp: el('downscaleMp'),
+    includeExistingCaption: el('includeExistingCaption'),
     btnCaption: el('btnCaption'),
     btnCaptionUncaptioned: el('btnCaptionUncaptioned'),
     btnCancel: el('btnCancel'),
@@ -99,6 +100,7 @@
     customVllmUsername: 'sc_custom_vllm_username',
     customVllmPassword: 'sc_custom_vllm_password',
     cardSize: 'sc_card_size',
+    includeExistingCaption: 'sc_include_existing_caption',
   };
 
   const defaultCardSize = 360;
@@ -391,6 +393,19 @@ EXAMPLES:
 
     // Show/hide custom VLLM field based on toggle state
     updateCustomVllmUI();
+
+    // Include existing caption toggle
+    try {
+      const includeExistingCaption = localStorage.getItem(storageKeys.includeExistingCaption);
+      if (includeExistingCaption !== null && ui.includeExistingCaption) {
+        ui.includeExistingCaption.checked = includeExistingCaption === 'true';
+      }
+    } catch { }
+    if (ui.includeExistingCaption) {
+      ui.includeExistingCaption.addEventListener('change', () => {
+        try { localStorage.setItem(storageKeys.includeExistingCaption, ui.includeExistingCaption.checked); } catch { }
+      });
+    }
 
     if (ui.useCustomVllm) {
       ui.useCustomVllm.addEventListener('change', () => {
@@ -884,6 +899,10 @@ EXAMPLES:
     return getCardText(card).trim();
   }
 
+  function shouldIncludeExistingCaption() {
+    return Boolean(ui.includeExistingCaption && ui.includeExistingCaption.checked);
+  }
+
   function getAdjacentCaptionTextarea(current, direction) {
     if (!current || !ui.results) return null;
     const textareas = Array.from(ui.results.querySelectorAll('.caption textarea'));
@@ -992,7 +1011,7 @@ EXAMPLES:
       if (card._btnCopy) card._btnCopy.classList.add('hidden');
 
       try {
-        const existingCaption = getExistingCaption(card);
+        const existingCaption = shouldIncludeExistingCaption() ? getExistingCaption(card) : '';
         const caption = await captionItem({
           apiKey,
           model: ui.modelId.value,
@@ -1651,7 +1670,7 @@ EXAMPLES:
       const framesPerVideo = parseInt(ui.framesPerVideo.value, 10);
 
       card._btnReroll.disabled = true;
-      const existingCaption = getExistingCaption(card);
+      const existingCaption = shouldIncludeExistingCaption() ? getExistingCaption(card) : '';
       const caption = await captionItem({
         apiKey,
         model: ui.modelId.value,
