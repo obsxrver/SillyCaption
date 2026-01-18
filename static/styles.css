@@ -972,10 +972,14 @@ progress::-moz-progress-bar {
   color: var(--text-secondary);
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  overflow: hidden; /* prevent overflow */
+  align-items: stretch;
+  overflow: visible;
   min-width: 0; /* allow flexbox item to shrink */
   width: 100%; /* take full available width */
+}
+
+.media .right {
+  overflow: visible;
 }
 
 .meta { 
