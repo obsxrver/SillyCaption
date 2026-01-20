@@ -103,7 +103,7 @@
     includeExistingCaption: 'sc_include_existing_caption',
   };
 
-  const defaultCardSize = 360;
+  const defaultCardSize = 400;
 
   // Presets helpers
   function defaultPresets() {
