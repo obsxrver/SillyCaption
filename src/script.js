@@ -103,11 +103,13 @@
     const annotator = {
       name: 'Image/Video Annotator',
       prompt:
-        `You are a professional image and video annotator.
-Create one natural, descriptive caption per image or video.
-Enrich the caption with object attributes, relationships between objects, and environmental details.
-If any text is visible, include it inside quotation marks within the caption.
-Stay accurate to the media—avoid generalizations or invented details.`,
+        `# Image Annotator
+You are a professional image/video annotator. Please complete the following task based on the input image or video.
+## Create Caption
+1. Write the caption using natural, descriptive text without structured formats or rich text.
+2. Enrich caption details by including: object attributes, vision relations between objects, and environmental details.
+3. Identify the text visible in the image, without translation or explanation, and highlight it in the caption with quotation marks.
+4. Maintain authenticity and accuracy, avoid generalizations.`,
     };
     const woman = {
       name: 'Character LoRA - Woman',
@@ -1911,7 +1913,8 @@ Instructions: ${systemPrompt}`;
     };
     // Add reasoning parameter if model supports it and toggle is enabled (but not for VLLM)
     if (!api.useCustomEndpoint){
-        body.provider = {ignore: ["alibaba"],sort:"throughput"}
+        body.stream = true;
+        body.provider = {ignore:["alibaba"],sort:"throughput"}
       if(modelSupportsReasoning(model) && ui.reasoningToggle && ui.reasoningToggle.checked) {
         body.reasoning = { enabled: true };
       }
@@ -1949,24 +1952,86 @@ Instructions: ${systemPrompt}`;
       throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
     }
 
-    // Handle responses with leading whitespace/newlines before JSON
-    let responseText;
-    try {
-      responseText = await res.text();
-      // Trim leading/trailing whitespace including newlines
-      responseText = responseText.trim();
-    } catch (error) {
-      throw new Error(`Failed to read response: ${error.message}`);
+    let msg;
+    if (!api.useCustomEndpoint) {
+      if (!res.body) {
+        throw new Error('Streaming response body is unavailable');
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let streamedText = '';
+      let doneSeen = false;
+
+      const appendDelta = (deltaContent) => {
+        if (typeof deltaContent === 'string') {
+          streamedText += deltaContent;
+          return;
+        }
+        if (Array.isArray(deltaContent)) {
+          for (const part of deltaContent) {
+            if (part && part.type === 'text' && typeof part.text === 'string') {
+              streamedText += part.text;
+            }
+          }
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+        const lines = buffer.split(/\r?\n/);
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue;
+          const payload = line.slice(5).trim();
+          if (!payload) continue;
+          if (payload === '[DONE]') {
+            doneSeen = true;
+            continue;
+          }
+          let eventData;
+          try {
+            eventData = JSON.parse(payload);
+          } catch {
+            continue;
+          }
+          if (eventData?.error) {
+            const errMsg = eventData.error?.message || JSON.stringify(eventData.error);
+            throw new Error(`OpenRouter stream error: ${errMsg}`);
+          }
+          const delta = eventData?.choices?.[0]?.delta?.content;
+          appendDelta(delta);
+        }
+        if (done) break;
+      }
+
+      if (!doneSeen && streamedText.trim().length === 0) {
+        throw new Error('No caption returned');
+      }
+      msg = streamedText;
+    } else {
+      // Handle responses with leading whitespace/newlines before JSON
+      let responseText;
+      try {
+        responseText = await res.text();
+        // Trim leading/trailing whitespace including newlines
+        responseText = responseText.trim();
+      } catch (error) {
+        throw new Error(`Failed to read response: ${error.message}`);
+      }
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (error) {
+        throw new Error(`Failed to parse JSON response: ${error.message}. Response preview: ${responseText.substring(0, 200)}...`);
+      }
+
+      msg = data?.choices?.[0]?.message?.content;
     }
 
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch (error) {
-      throw new Error(`Failed to parse JSON response: ${error.message}. Response preview: ${responseText.substring(0, 200)}...`);
-    }
-
-    let msg = data?.choices?.[0]?.message?.content;
     if (!msg) throw new Error('No caption returned');
 
     // Clean up reasoning content for reasoning models
